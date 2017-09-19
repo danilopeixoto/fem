@@ -22,11 +22,11 @@ namespace opentissue {
             default_point_container(tetrahedral_mesh_type *mesh) : m_mesh(mesh) {}
 
             value_type &operator[](unsigned int const &idx) {
-                return m_mesh->node(idx)->m_coord;
+                return m_mesh->node(idx)->m_model_coord;
             }
 
             value_type const &operator[](unsigned int const &idx) const {
-                return m_mesh->node(idx)->m_coord;
+                return m_mesh->node(idx)->m_model_coord;
             }
 
             void clear() {}

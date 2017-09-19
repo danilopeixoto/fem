@@ -30,9 +30,8 @@ namespace opentissue {
             assert(c_creep >= 0 && c_creep <= 1.0 ||
                 !"Creep rate must be in the range of 0 to 1.");
 
-            detail::initialize_stiffness_plasticity(
-                mesh.tetrahedron_begin(), mesh.tetrahedron_end(),
-                density, poisson, young, c_yield, c_max_yield, c_creep);
+            detail::initialize_stiffness_plasticity(mesh, density, poisson, young,
+                c_yield, c_max_yield, c_creep);
 
             detail::compute_mass(mesh);
         }

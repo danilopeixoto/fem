@@ -18,13 +18,24 @@
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename real_type, typename tetrahedron_iterator>
-            inline void initialize_stiffness_plasticity(tetrahedron_iterator const &begin,
-                tetrahedron_iterator const &end, real_type const &density,
-                real_type const &poisson, real_type const &young,
-                real_type const &c_yield, real_type const &c_max_yield,
-                real_type const &c_creep) {
-                for (tetrahedron_iterator T = begin; T != end; ++T) {
+            template <typename fem_mesh, typename real_type>
+            inline void initialize_stiffness_plasticity(fem_mesh &mesh,
+                real_type const &density, real_type const &poisson,
+                real_type const &young, real_type const &c_yield,
+                real_type const &c_max_yield, real_type const &c_creep) {
+                typedef typename fem_mesh::node_iterator node_iterator;
+                typedef typename fem_mesh::tetrahedron_iterator tetrahedron_iterator;
+
+                node_iterator Nbegin = mesh.node_begin();
+                node_iterator Nend = mesh.node_end();
+
+                for (node_iterator N = Nbegin; N != Nend; ++N)
+                    N->m_coord = N->m_model_coord;
+
+                tetrahedron_iterator Tbegin = mesh.tetrahedron_begin();
+                tetrahedron_iterator Tend = mesh.tetrahedron_end();
+
+                for (tetrahedron_iterator T = Tbegin; T != Tend; ++T) {
                     T->m_density = density;
                     T->m_poisson = poisson;
                     T->m_young = young;
@@ -39,8 +50,6 @@ namespace opentissue {
                     T->m_V = compute_volume(T->m_e10, T->m_e20, T->m_e30);
 
                     assert(T->m_V > 0 || !"Element with negative volume found.");
-
-                    T->m_Re = math::diag(1.0);
 
                     compute_Ke(T->i()->m_model_coord, T->j()->m_model_coord,
                         T->k()->m_model_coord, T->m()->m_model_coord, T->m_young,

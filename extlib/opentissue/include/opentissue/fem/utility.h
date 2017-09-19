@@ -16,53 +16,97 @@ namespace opentissue {
     namespace fem {
         template <typename fem_mesh, typename vector_type>
         inline void apply_force(fem_mesh &mesh, vector_type const & force) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+            typedef typename fem_mesh::node_iterator node_iterator;
+
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
+            for (node_iterator N = Nbegin; N != Nend; ++N) {
+                if (N->m_fixed)
+                    continue;
+
                 N->m_f_external += force;
+            }
         }
 
         template <typename fem_mesh, typename vector_type>
-        inline void clear_forces(fem_mesh &mesh) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+        inline void clear_external_forces(fem_mesh &mesh) {
+            typedef typename fem_mesh::node_iterator node_iterator;
+
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
+            for (node_iterator N = Nbegin; N != Nend; ++N) {
+                if (N->m_fixed)
+                    continue;
+
                 N->m_f_external = 0;
+            }
         }
 
         template <typename fem_mesh, typename vector_type>
         inline void apply_acceleration(fem_mesh &mesh, vector_type const & acceleration) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+            typedef typename fem_mesh::node_iterator node_iterator;
+
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
+            for (node_iterator N = Nbegin; N != Nend; ++N) {
+                if (N->m_fixed)
+                    continue;
+
                 N->m_f_external += N->m_mass * acceleration;
+            }
         }
 
         template <typename fem_mesh, typename vector_type>
         inline void apply_velocity(fem_mesh &mesh, vector_type const & velocity) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+            typedef typename fem_mesh::node_iterator node_iterator;
+
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
+            for (node_iterator N = Nbegin; N != Nend; ++N) {
+                if (N->m_fixed)
+                    continue;
+
                 N->m_velocity += velocity;
+            }
         }
 
         template <typename fem_mesh, typename vector_type>
         inline void apply_angular_velocity(fem_mesh &mesh,
             vector_type const & angular_velocity) {
+            typedef typename fem_mesh::node_iterator node_iterator;
+
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
             vector_type mass_center;
 
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+            for (node_iterator N = Nbegin; N != Nend; ++N)
                 mass_center += N->m_coord;
 
             if (mesh.size_nodes() != 0)
                 mass_center /= (double)mesh.size_nodes();
 
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
+            for (node_iterator N = Nbegin; N != Nend; ++N) {
+                if (N->m_fixed)
+                    continue;
+
                 N->m_velocity += cross(angular_velocity, N->m_coord - mass_center);
+            }
         }
 
         template <typename fem_mesh>
         inline void set_fixed(fem_mesh &mesh, bool fixed) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
-                N->m_fixed = fixed;
-        }
+            typedef typename fem_mesh::node_iterator node_iterator;
 
-        template <typename fem_mesh>
-        inline void update_original_coord(fem_mesh &mesh) {
-            for (fem_mesh::node_iterator N = mesh.node_begin(); N != mesh.node_end(); ++N)
-                N->m_model_coord = N->m_coord;
+            node_iterator Nbegin = mesh.node_begin();
+            node_iterator Nend = mesh.node_end();
+
+            for (node_iterator N = Nbegin; N != Nend; ++N)
+                N->m_fixed = fixed;
         }
 
         template <typename fem_mesh, typename matrix_type>

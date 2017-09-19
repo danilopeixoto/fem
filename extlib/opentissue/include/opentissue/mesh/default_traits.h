@@ -17,7 +17,7 @@ namespace opentissue {
             typedef typename math_types::vector_type vector_type;
             typedef typename math_types::real_type real_type;
 
-            vector_type m_coord;
+            vector_type m_model_coord;
         };
 
         class DefaultTetrahedronTraits {};

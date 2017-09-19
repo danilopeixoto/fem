@@ -11,17 +11,22 @@
 #include <opentissue/configuration.h>
 
 #include <opentissue/math/constants.h>
+#include <opentissue/math/basic_types.h>
 #include <opentissue/mesh/mesh_core_access.h>
 #include <opentissue/mesh/node.h>
 #include <opentissue/mesh/tetrahedron.h>
+#include <opentissue/mesh/default_point_container.h>
+#include <opentissue/mesh/default_traits.h>
 
 #include <cassert>
 #include <vector>
 
 namespace opentissue {
     namespace mesh {
-        namespace detail {
-            template <typename M, typename N, typename T> class TetrahedralMesh {
+        template <typename M = opentissue::math::BasicMathTypes<double, size_t>,
+            typename N = mesh::DefaultNodeTraits<M>,
+            typename T = mesh::DefaultTetrahedronTraits>
+            class TetrahedralMesh {
             public:
                 typedef M math_types;
                 typedef N node_traits;
@@ -142,9 +147,10 @@ namespace opentissue {
                 }
 
                 template <typename vector_type>
-                node_iterator insert(vector_type const &coord) {
+                node_iterator insert(vector_type const & m_model_coord) {
                     node_iterator node = insert();
-                    node->m_coord = coord;
+                    node->m_model_coord = m_model_coord;
+
                     return node;
                 }
 
@@ -320,8 +326,7 @@ namespace opentissue {
                     if (I->owner() != this)
                         throw std::logic_error("Tetrahedron don't belong to mesh.");
                 }
-            };
-        }
+        };
     }
 }
 
