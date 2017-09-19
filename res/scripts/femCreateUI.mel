@@ -1,0 +1,94 @@
+// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+global string $globalFEMMenu = "femMenu";
+global string $globalFEMShelf = "FEM";
+
+global proc createFEMMenu() {
+    global string $gMainWindow;
+    global string $globalFEMMenu;
+    
+    setParent $gMainWindow;
+
+    if (!`menu -exists $globalFEMMenu`) {
+        menu -label "FEM" -tearOff true -visible false $globalFEMMenu;
+        menuSet -edit -addMenu $globalFEMMenu "dynamicsMenuSet";
+    
+        if(`menuSet -query -currentMenuSet` == "dynamicsMenuSet") {
+            int $menuIndex = size(`menuSet -query -menuArray "commonMenuSet"`) +
+                size(`menuSet -query -menuArray "dynamicsMenuSet"`);
+            
+            window -edit -menuIndex $globalFEMMenu $menuIndex $gMainWindow;
+            menu -edit -visible true $globalFEMMenu;
+        }
+        
+        eval "source \"menu_FEM.mel\"";
+        menu_FEM();
+    }
+}
+
+global proc deleteFEMMenu() {
+    global string $globalFEMMenu;
+
+    if (`menu -exists $globalFEMMenu`)
+        deleteUI -menu $globalFEMMenu;
+}
+
+global proc createFEMShelf() {
+    global string $gShelfTopLevel;
+    global string $globalFEMShelf;
+    
+    setParent $gShelfTopLevel;
+
+    if (!`shelfLayout -exists $globalFEMShelf`) {
+        int $selectedTabIndex = `shelfTabLayout -query -selectTabIndex $gShelfTopLevel`;
+        
+        addNewShelfTab $globalFEMShelf;
+        
+        if ($selectedTabIndex) {
+            shelfTabLayout -edit -selectTabIndex $selectedTabIndex $gShelfTopLevel;
+            shelfTabChange();
+        }
+    }
+}
+
+global proc deleteFEMShelf() {
+    global string $globalFEMShelf;
+
+    if (`shelfLayout -exists $globalFEMShelf`)
+        deleteUI -layout $globalFEMShelf;
+}
+
+global proc femCreateUI() {
+    createFEMMenu();
+    createFEMShelf();
+}
+
+global proc femDeleteUI() {
+    deleteFEMMenu();
+    deleteFEMShelf();
+}

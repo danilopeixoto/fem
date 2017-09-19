@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{0c90b855-5311-4904-a90e-dd0261e2b5aa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Script Files">
+      <UniqueIdentifier>{18840c9a-cfcb-4ca1-8eff-89439578a9c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Icon Files">
+      <UniqueIdentifier>{a5b5811d-5830-45d1-99b3-80948d89a106}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\scripts\AEfemMeshTemplate.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\AEfemObjectTemplate.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\AEfemSolverTemplate.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\shelf_FEM.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\menu_FEM.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\femCreateUI.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\createFEMObject.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\icons\activeFEMObject.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\femMesh.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\femObject.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\femSolver.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\passiveFEMObject.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\fem.mod">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\femObjectData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\femPlugin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\femSolver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\femMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\femObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\femObject.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\femObjectData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\femSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\femMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\icons\activeFEMObject.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\activeFEMObject_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\activeFEMObject_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femMesh.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femMesh_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femMesh_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femObject.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femObject_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femObject_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femSolver.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femSolver_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\femSolver_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\passiveFEMObject.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\passiveFEMObject_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\passiveFEMObject_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

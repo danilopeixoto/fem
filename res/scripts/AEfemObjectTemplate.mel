@@ -1,0 +1,112 @@
+// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+global proc AEfemObjectSetControls(string $nodeName) {
+    int $disable = !`getAttr ($nodeName + ".enable")`;
+
+    editorTemplate -dimControl $nodeName "passive" $disable;
+    
+    editorTemplate -dimControl $nodeName "density" $disable;
+    editorTemplate -dimControl $nodeName "poissonsRatio" $disable;
+    editorTemplate -dimControl $nodeName "youngsModulus" $disable;
+    editorTemplate -dimControl $nodeName "massDamping" $disable;
+    editorTemplate -dimControl $nodeName "stiffnessDamping" $disable;
+    editorTemplate -dimControl $nodeName "minimumYieldStrength" $disable;
+    editorTemplate -dimControl $nodeName "maximumYieldStrength" $disable;
+    editorTemplate -dimControl $nodeName "creepRate" $disable;
+    editorTemplate -dimControl $nodeName "friction" $disable;
+    
+    editorTemplate -dimControl $nodeName "initialVelocity" $disable;
+    editorTemplate -dimControl $nodeName "initialAngularVelocity" $disable;
+
+    AEfemObjectSetPassiveControls($nodeName);
+}
+
+global proc AEfemObjectSetPassiveControls(string $nodeName) {
+    int $enable = `getAttr ($nodeName + ".enable")`;
+
+    if ($enable) {
+        int $passive = `getAttr ($nodeName + ".passive")`;
+
+        editorTemplate -dimControl $nodeName "density" $passive;
+        editorTemplate -dimControl $nodeName "poissonsRatio" $passive;
+        editorTemplate -dimControl $nodeName "youngsModulus" $passive;
+        editorTemplate -dimControl $nodeName "massDamping" $passive;
+        editorTemplate -dimControl $nodeName "stiffnessDamping" $passive;
+        editorTemplate -dimControl $nodeName "minimumYieldStrength" $passive;
+        editorTemplate -dimControl $nodeName "maximumYieldStrength" $passive;
+        editorTemplate -dimControl $nodeName "creepRate" $passive;
+    
+        editorTemplate -dimControl $nodeName "initialVelocity" $passive;
+        editorTemplate -dimControl $nodeName "initialAngularVelocity" $passive;
+    }
+}
+
+global proc AEfemObjectTemplate(string $nodeName) {
+    editorTemplate -beginScrollLayout;
+
+    editorTemplate -beginNoOptimize;
+    
+    editorTemplate -addControl "enable" "AEfemObjectSetControls";
+    editorTemplate -addControl "passive" "AEfemObjectSetPassiveControls";
+
+    editorTemplate -endNoOptimize;
+    
+    editorTemplate -beginLayout "Material Attributes" -collapse false;
+    
+    editorTemplate -addControl "density";
+    editorTemplate -label "Poisson's Ratio" -addControl "poissonsRatio";
+    editorTemplate -label "Young's Modulus" -addControl "youngsModulus";
+    editorTemplate -addControl "massDamping";
+    editorTemplate -addControl "stiffnessDamping";
+    editorTemplate -addControl "minimumYieldStrength";
+    editorTemplate -addControl "maximumYieldStrength";
+    editorTemplate -addControl "creepRate";
+    editorTemplate -addControl "friction";
+    
+    editorTemplate -endLayout;
+    
+    editorTemplate -beginLayout "Initial Conditions" -collapse false;
+    
+    editorTemplate -addControl "initialVelocity";
+    editorTemplate -addControl "initialAngularVelocity";
+    
+    editorTemplate -endLayout;
+    
+    editorTemplate -suppress "startTime";
+    editorTemplate -suppress "currentTime";
+    editorTemplate -suppress "inputMesh";
+    editorTemplate -suppress "surfaceNodes";
+    editorTemplate -suppress "volumeNodes";
+    editorTemplate -suppress "matrix";
+    editorTemplate -suppress "nextState";
+
+    AEdependNodeTemplate $nodeName;
+    editorTemplate -addExtraControls;
+    
+    editorTemplate -endScrollLayout;
+}

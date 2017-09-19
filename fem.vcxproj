@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="debug|x64">
+      <Configuration>debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release|x64">
+      <Configuration>release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\fem.mod" />
+    <None Include="res\icons\activeFEMObject.svg" />
+    <None Include="res\icons\femMesh.svg" />
+    <None Include="res\icons\femObject.svg" />
+    <None Include="res\icons\femSolver.svg" />
+    <None Include="res\icons\passiveFEMObject.svg" />
+    <None Include="res\scripts\AEfemMeshTemplate.mel" />
+    <None Include="res\scripts\AEfemObjectTemplate.mel" />
+    <None Include="res\scripts\AEfemSolverTemplate.mel" />
+    <None Include="res\scripts\createFEMObject.mel" />
+    <None Include="res\scripts\femCreateUI.mel" />
+    <None Include="res\scripts\menu_FEM.mel" />
+    <None Include="res\scripts\shelf_FEM.mel" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\femMesh.cpp" />
+    <ClCompile Include="src\femObject.cpp" />
+    <ClCompile Include="src\femObjectData.cpp" />
+    <ClCompile Include="src\femPlugin.cpp" />
+    <ClCompile Include="src\femSolver.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\femMesh.h" />
+    <ClInclude Include="include\femObject.h" />
+    <ClInclude Include="include\femObjectData.h" />
+    <ClInclude Include="include\femSolver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\icons\activeFEMObject.png" />
+    <Image Include="res\icons\activeFEMObject_150.png" />
+    <Image Include="res\icons\activeFEMObject_200.png" />
+    <Image Include="res\icons\femMesh.png" />
+    <Image Include="res\icons\femMesh_150.png" />
+    <Image Include="res\icons\femMesh_200.png" />
+    <Image Include="res\icons\femObject.png" />
+    <Image Include="res\icons\femObject_150.png" />
+    <Image Include="res\icons\femObject_200.png" />
+    <Image Include="res\icons\femSolver.png" />
+    <Image Include="res\icons\femSolver_150.png" />
+    <Image Include="res\icons\femSolver_200.png" />
+    <Image Include="res\icons\passiveFEMObject.png" />
+    <Image Include="res\icons\passiveFEMObject_150.png" />
+    <Image Include="res\icons\passiveFEMObject_200.png" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{3EDA76B4-C187-4710-B312-05C951CD94DB}</ProjectGuid>
+    <RootNamespace>fem</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)\build\$(Configuration)\fem\plug-ins\</OutDir>
+    <IntDir>build\$(Configuration)\fem\plug-ins\</IntDir>
+    <TargetExt>.mll</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)\build\$(Configuration)\fem\plug-ins\</OutDir>
+    <IntDir>build\$(Configuration)\fem\plug-ins\</IntDir>
+    <TargetExt>.mll</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;_DEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include\;$(MAYA_PATH)\include\;extlib\opentissue\include\;$(NGLIB_PATH)\include\</AdditionalIncludeDirectories>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(MAYA_PATH)\lib\;$(NGLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;nglib.lib</AdditionalDependencies>
+      <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
+      <IgnoreAllDefaultLibraries>
+      </IgnoreAllDefaultLibraries>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
+for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;NDEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include\;$(MAYA_PATH)\include\;extlib\opentissue\include\;$(NGLIB_PATH)\include\</AdditionalIncludeDirectories>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(MAYA_PATH)\lib\;$(NGLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;nglib.lib</AdditionalDependencies>
+      <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
+      <IgnoreAllDefaultLibraries>
+      </IgnoreAllDefaultLibraries>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
+for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

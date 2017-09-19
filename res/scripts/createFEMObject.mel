@@ -1,0 +1,117 @@
+// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+global proc string[] createFEMObjectNetwork(int $passive) {
+    string $objectList[] = `ls -selection -dagObjects -type "mesh"`;
+
+    if (size($objectList) == 0) {
+        error "Select a polygon object to create a finite element object.";
+
+        return {};
+    }
+    
+    string $femMesh;
+    string $femObject;
+    string $femSolver;
+    string $transform;
+    string $outputMesh;
+    string $time = "time1";
+
+    string $selectionList[];
+    string $nodeList[];
+    string $parentList[];
+    string $currentConnections[];
+
+    string $solverList[] = `ls -type "femSolver"`;
+
+    int $index;
+    
+    if (size($solverList) == 0) {
+        $femSolver = `createNode "femSolver"`;
+
+        $nodeList[0] = $femSolver;
+        
+        connectAttr -force ($time + ".outTime") ($femSolver + ".currentTime");
+    }
+    else
+        $femSolver = $solverList[0];
+        
+    for ($inputMesh in $objectList) {
+        $currentConnections = `listConnections -type "femObject" $inputMesh`;
+
+        if (size($currentConnections) == 0) {
+            $femMesh = `createNode "femMesh"`;
+            $femObject = `createNode "femObject"`;
+            $transform = `createNode -name "outputFEM#" "transform"`;
+            $outputMesh = `createNode -name "outputFEMMesh#" -parent $transform "mesh"`;
+
+            appendStringArray($selectionList, {$outputMesh}, 1);
+            appendStringArray($nodeList, {$femMesh, $femObject, $transform, $outputMesh}, 4);
+
+            setAttr ($femObject + ".passive") $passive;
+
+            $parentList = `listRelatives -parent -type "transform" $inputMesh`;
+
+            setAttr ($inputMesh + ".intermediateObject") true;
+            setAttr ($parentList[0] + ".hiddenInOutliner") true;
+            
+            AEdagNodeCommonRefreshOutliners();
+            
+            connectAttr -force ($inputMesh + ".inMesh") ($femMesh + ".inputMesh");
+            connectAttr -force ($inputMesh + ".worldMatrix") ($femObject + ".matrix");
+
+            connectAttr -force ($femMesh + ".outputMesh") ($femObject + ".inputMesh");
+            connectAttr -force ($femMesh + ".surfaceNodes") ($femObject + ".surfaceNodes");
+            connectAttr -force ($femMesh + ".volumeNodes") ($femObject + ".volumeNodes");
+
+            $index = getNextFreeMultiIndex($femSolver + ".currentState", 0);
+
+            connectAttr -force ($femObject + ".outputMesh") ($outputMesh + ".inMesh");
+            connectAttr -force ($femObject + ".currentState") ($femSolver + ".currentState[" + $index + "]");
+
+            connectAttr -force ($time + ".outTime") ($femObject + ".currentTime");
+            
+            connectAttr -force ($femSolver + ".outputState[" + $index + "]") ($femObject + ".nextState");
+            connectAttr -force ($femSolver + ".startTime") ($femObject + ".startTime");
+        }
+        else {
+            appendStringArray($selectionList, {$inputMesh}, 1);
+
+            $femObject = $currentConnections[0];
+            
+            setAttr ($femObject + ".passive") $passive;
+        }
+    }
+
+    select $selectionList;
+
+    return $nodeList;
+}
+
+global proc createFEMObject(int $passive) {
+    evalEcho ("createFEMObjectNetwork " + $passive);
+}
