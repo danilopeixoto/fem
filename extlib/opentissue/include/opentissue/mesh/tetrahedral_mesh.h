@@ -12,7 +12,7 @@
 
 #include <opentissue/math/constants.h>
 #include <opentissue/math/basic_types.h>
-#include <opentissue/mesh/mesh_core_access.h>
+#include <opentissue/mesh/core_access.h>
 #include <opentissue/mesh/node.h>
 #include <opentissue/mesh/tetrahedron.h>
 #include <opentissue/mesh/default_point_container.h>
@@ -91,11 +91,11 @@ namespace opentissue {
                     this->m_tetrahedra = rhs.m_tetrahedra;
 
                     for (node_iterator n = this->node_begin(); n != this->node_end(); ++n)
-                        mesh_core_access::set_owner((*n), this);
+                        core_access::set_owner((*n), this);
 
                     for (tetrahedron_iterator t = this->tetrahedron_begin();
                         t != this->tetrahedron_end(); ++t)
-                        mesh_core_access::set_owner((*t), this);
+                        core_access::set_owner((*t), this);
 
                     return (*this);
                 }
@@ -141,8 +141,8 @@ namespace opentissue {
                 node_iterator insert() {
                     m_nodes.push_back(node_type());
                     node_type &nd = m_nodes.back();
-                    mesh_core_access::set_index(nd, size_nodes() - 1);
-                    mesh_core_access::set_owner(nd, this);
+                    core_access::set_index(nd, size_nodes() - 1);
+                    core_access::set_owner(nd, this);
                     return m_nodes.begin() + nd.idx();
                 }
 
@@ -170,17 +170,17 @@ namespace opentissue {
                     m_tetrahedra.push_back(tetrahedron_type());
                     tetrahedron_type &t = m_tetrahedra.back();
 
-                    mesh_core_access::set_index(t, size_tetrahedra() - 1);
-                    mesh_core_access::set_owner(t, this);
-                    mesh_core_access::set_node0(t, i->idx());
-                    mesh_core_access::set_node1(t, j->idx());
-                    mesh_core_access::set_node2(t, k->idx());
-                    mesh_core_access::set_node3(t, m->idx());
+                    core_access::set_index(t, size_tetrahedra() - 1);
+                    core_access::set_owner(t, this);
+                    core_access::set_node0(t, i->idx());
+                    core_access::set_node1(t, j->idx());
+                    core_access::set_node2(t, k->idx());
+                    core_access::set_node3(t, m->idx());
 
-                    mesh_core_access::tetrahedra_push_back(*i, t.idx());
-                    mesh_core_access::tetrahedra_push_back(*j, t.idx());
-                    mesh_core_access::tetrahedra_push_back(*k, t.idx());
-                    mesh_core_access::tetrahedra_push_back(*m, t.idx());
+                    core_access::tetrahedra_push_back(*i, t.idx());
+                    core_access::tetrahedra_push_back(*j, t.idx());
+                    core_access::tetrahedra_push_back(*k, t.idx());
+                    core_access::tetrahedra_push_back(*m, t.idx());
 
                     return m_tetrahedra.begin() + t.idx();
                 }
@@ -227,15 +227,15 @@ namespace opentissue {
 
                     verify_nodes(i, j, k, m);
 
-                    mesh_core_access::tetrahedra_remove(*i, I->idx());
-                    mesh_core_access::tetrahedra_remove(*j, I->idx());
-                    mesh_core_access::tetrahedra_remove(*k, I->idx());
-                    mesh_core_access::tetrahedra_remove(*m, I->idx());
+                    core_access::tetrahedra_remove(*i, I->idx());
+                    core_access::tetrahedra_remove(*j, I->idx());
+                    core_access::tetrahedra_remove(*k, I->idx());
+                    core_access::tetrahedra_remove(*m, I->idx());
 
-                    mesh_core_access::set_node0(*I, this->undefined());
-                    mesh_core_access::set_node1(*I, this->undefined());
-                    mesh_core_access::set_node2(*I, this->undefined());
-                    mesh_core_access::set_node3(*I, this->undefined());
+                    core_access::set_node0(*I, this->undefined());
+                    core_access::set_node1(*I, this->undefined());
+                    core_access::set_node2(*I, this->undefined());
+                    core_access::set_node3(*I, this->undefined());
                 }
 
                 void link(tetrahedron_iterator &I, node_iterator &i, node_iterator &j,
@@ -250,15 +250,15 @@ namespace opentissue {
 
                     verify_nodes(i, j, k, m);
 
-                    mesh_core_access::tetrahedra_push_back(*i, I->idx());
-                    mesh_core_access::tetrahedra_push_back(*j, I->idx());
-                    mesh_core_access::tetrahedra_push_back(*k, I->idx());
-                    mesh_core_access::tetrahedra_push_back(*m, I->idx());
+                    core_access::tetrahedra_push_back(*i, I->idx());
+                    core_access::tetrahedra_push_back(*j, I->idx());
+                    core_access::tetrahedra_push_back(*k, I->idx());
+                    core_access::tetrahedra_push_back(*m, I->idx());
 
-                    mesh_core_access::set_node0(*I, i->idx());
-                    mesh_core_access::set_node1(*I, j->idx());
-                    mesh_core_access::set_node2(*I, k->idx());
-                    mesh_core_access::set_node3(*I, m->idx());
+                    core_access::set_node0(*I, i->idx());
+                    core_access::set_node1(*I, j->idx());
+                    core_access::set_node2(*I, k->idx());
+                    core_access::set_node3(*I, m->idx());
                 }
 
                 void swap(tetrahedron_iterator &A, tetrahedron_iterator &B) {
@@ -295,8 +295,8 @@ namespace opentissue {
                     (*TA) = (*TB);
                     (*TB) = tmp;
 
-                    mesh_core_access::set_index(*A, Aidx);
-                    mesh_core_access::set_index(*B, Bidx);
+                    core_access::set_index(*A, Aidx);
+                    core_access::set_index(*B, Bidx);
 
                     link(A, Bi, Bj, Bk, Bm);
                     link(B, Ai, Aj, Ak, Am);

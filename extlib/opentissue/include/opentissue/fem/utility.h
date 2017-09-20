@@ -87,7 +87,7 @@ namespace opentissue {
             for (node_iterator N = Nbegin; N != Nend; ++N)
                 mass_center += N->m_coord;
 
-            if (mesh.size_nodes() != 0)
+			if (mesh.size_nodes() != 0)
                 mass_center /= (double)mesh.size_nodes();
 
             for (node_iterator N = Nbegin; N != Nend; ++N) {

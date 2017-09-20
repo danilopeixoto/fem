@@ -58,8 +58,8 @@ namespace opentissue {
                     for (int i = 0; i < 6; ++i)
                         T->m_plastic[i] = 0;
 
-                    compute_B(T->m_e10, T->m_e20, T->m_e30, T->m_V, T->m_B);
-                    compute_isotropic_elasticity_vector(T->m_young, T->m_poisson, T->m_D);
+                    compute_b(T->m_e10, T->m_e20, T->m_e30, T->m_V, T->m_B);
+                    compute_isotropic_elasticity(T->m_young, T->m_poisson, T->m_D);
                 }
             }
         }

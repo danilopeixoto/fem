@@ -10,7 +10,7 @@
 
 #include <opentissue/configuration.h>
 
-#include <opentissue/math/eigen_system_decomposition.h>
+#include <opentissue/math/matrix_decomposition.h>
 #include <opentissue/math/value_traits.h>
 #include <opentissue/math/vector.h>
 

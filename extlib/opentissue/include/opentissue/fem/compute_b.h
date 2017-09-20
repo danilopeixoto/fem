@@ -14,13 +14,12 @@ namespace opentissue {
     namespace fem {
         namespace detail {
             template <typename real_type, typename vector_type>
-            inline void compute_B(vector_type const &e10, vector_type const &e20,
+            inline void compute_b(vector_type const &e10, vector_type const &e20,
                 vector_type const &e30, real_type volume,
                 vector_type *B) {
-                real_type div6V = 1 / (6.0 * volume);
+                real_type div6V = 1.0 / (6.0 * volume);
 
-                B[1](0) = (e20(2) * e30(1) - e20(1) * e30(2)) *
-                    div6V;
+                B[1](0) = (e20(2) * e30(1) - e20(1) * e30(2)) * div6V;
 
                 B[2](0) = (e10(1) * e30(2) - e10(2) * e30(1)) * div6V;
                 B[3](0) = (e10(2) * e20(1) - e10(1) * e20(2)) * div6V;

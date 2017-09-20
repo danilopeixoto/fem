@@ -199,10 +199,7 @@ FEMObjectData & FEMObjectData::update(const FEMParameters & parameters,
             parameters.minimumYieldStrength, parameters.maximumYieldStrength,
             parameters.creepRate);
 
-        if (passive)
-            opentissue::fem::set_fixed(*tetrahedralMesh, true);
-        else
-            opentissue::fem::set_fixed(*tetrahedralMesh, false);
+        opentissue::fem::set_fixed(*tetrahedralMesh, passive);
     }
 
     return *this;

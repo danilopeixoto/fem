@@ -18,6 +18,9 @@
     <Filter Include="Resource Files\Icon Files">
       <UniqueIdentifier>{a5b5811d-5830-45d1-99b3-80948d89a106}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OpenTissue">
+      <UniqueIdentifier>{7f407763-b785-462a-bdd2-c5372e5a669d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="res\scripts\AEfemMeshTemplate.mel">
@@ -89,6 +92,120 @@
     </ClInclude>
     <ClInclude Include="include\femMesh.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\configuration.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\add_plasticity_force.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\clear_stiffness_assembly.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\compute_b.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\compute_isotropic_elasticity.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\compute_ke.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\compute_mass.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\compute_volume.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\conjugate_gradients.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\dynamics_assembly.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\fem.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\initialize.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\initialize_stiffness_plasticity.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\mesh.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\node_traits.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\simulate.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\stiffness_assembly.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\tetrahedron_traits.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\update_orientation.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\update_position.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\fem\utility.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\basic_types.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\constants.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\functions.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\matrix.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\random.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\value_traits.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\vector.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\boundary_faces.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\core_access.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\default_point_container.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\default_traits.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\edges.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\mesh.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\node.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\tetrahedral_mesh.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\mesh\tetrahedron.h">
+      <Filter>OpenTissue</Filter>
+    </ClInclude>
+    <ClInclude Include="extlib\opentissue\include\opentissue\math\matrix_decomposition.h">
+      <Filter>OpenTissue</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

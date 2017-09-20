@@ -35,7 +35,7 @@ namespace opentissue {
             std::array<index_type, 4> m_nodes;
 
         private:
-            friend class mesh_core_access;
+            friend class core_access;
 
             void set_index(index_type idx) { m_idx = idx; }
             void set_owner(tetrahedral_mesh_type *owner) { m_owner = owner; }
