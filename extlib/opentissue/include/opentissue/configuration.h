@@ -15,12 +15,9 @@
 #endif
 
 #ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
 #define _USE_MATH_DEFINES
 #define NOMINMAX
 #include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#undef NOMINMAX
 #endif
 
 #define OPENTISSUE_VERSION 0.994

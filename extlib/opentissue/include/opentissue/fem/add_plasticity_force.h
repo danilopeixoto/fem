@@ -17,7 +17,6 @@ namespace opentissue {
             inline void add_plasticity_force(tetrahedron_iterator begin,
                 tetrahedron_iterator end,
                 real_type const &dt) {
-                using std::min;
                 using std::sqrt;
 
                 typedef typename tetrahedron_iterator::value_type::vector_type vector_type;
@@ -57,8 +56,7 @@ namespace opentissue {
                     norm_elastic = sqrt(norm_elastic);
 
                     if (norm_elastic > T->m_yield) {
-                        real_type amount = min(T->m_creep, 1.0 / dt)
-                            * (1.0 - T->m_yield / norm_elastic);
+                        real_type amount = T->m_creep * (1.0 - T->m_yield / norm_elastic);
 
                         for (int i = 0; i < 6; ++i)
                             T->m_plastic[i] += amount * e_elastic[i];
@@ -80,6 +78,7 @@ namespace opentissue {
 
                     for (unsigned int j = 0; j < 4; ++j) {
                         real_type *plastic = T->m_plastic;
+
                         real_type bj = T->m_B[j](0);
                         real_type cj = T->m_B[j](1);
                         real_type dj = T->m_B[j](2);

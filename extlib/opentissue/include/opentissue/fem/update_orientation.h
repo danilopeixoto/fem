@@ -15,7 +15,7 @@ namespace opentissue {
         namespace detail {
             template <typename tetrahedron_iterator>
             inline void update_orientation(tetrahedron_iterator const &begin,
-                tetrahedron_iterator const &end) {
+                tetrahedron_iterator const &end, unsigned int max_iterations) {
                 typedef typename tetrahedron_iterator::value_type::real_type real_type;
                 typedef typename tetrahedron_iterator::value_type::vector_type vector_type;
                 typedef typename tetrahedron_iterator::value_type::matrix_type matrix_type;
@@ -47,7 +47,7 @@ namespace opentissue {
                     if (v < T->m_V * 0.06)
                         math::qr_decomposition(T->m_Re, R, S);
                     else
-                        math::polar_decomposition(T->m_Re, 10, 1.0e-6, R, S);
+                        math::polar_decomposition(T->m_Re, max_iterations, 1.0e-6, R, S);
 
                     T->m_Re = R;
                 }

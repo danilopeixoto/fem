@@ -50,8 +50,8 @@ namespace opentissue {
                 }
 
                 for (unsigned int iteration = 0; iteration < max_iterations; ++iteration) {
-                    real_type d = 0.0;
-                    real_type d2 = 0.0;
+                    real_type d = 0;
+                    real_type d2 = 0;
 
                     for (node_iterator n_i = begin; n_i != end; ++n_i) {
                         if (n_i->m_fixed)
@@ -79,7 +79,7 @@ namespace opentissue {
                         d2 = epsilon;
 
                     real_type d3 = d / d2;
-                    real_type d1 = 0.0;
+                    real_type d1 = 0;
 
                     for (node_iterator n_i = begin; n_i != end; ++n_i) {
                         if (n_i->m_fixed)

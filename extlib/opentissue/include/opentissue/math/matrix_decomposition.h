@@ -39,11 +39,13 @@ namespace opentissue {
 
             diag(0) = fM00;
             sub_diag(2) = value_traits::zero();
+
             if (fM02 != value_traits::zero()) {
                 real_type fLength = sqrt(fM01 * fM01 + fM02 * fM02);
                 real_type fInvLength = (value_traits::one()) / fLength;
                 fM01 *= fInvLength;
                 fM02 *= fInvLength;
+
                 real_type fQ = (value_traits::two()) * fM01 * fM12 + fM02 * (fM22 - fM11);
                 diag(1) = fM11 + fM02 * fQ;
                 diag(2) = fM22 - fM02 * fQ;
@@ -77,20 +79,27 @@ namespace opentissue {
 
             const int max_iterations = 32;
             const int dim = 3;
+
             for (int i0 = 0; i0 < dim; ++i0) {
                 int i1;
+
                 for (i1 = 0; i1 < max_iterations; ++i1) {
                     int i2;
+
                     for (i2 = i0; i2 <= dim - 2; ++i2) {
                         real_type fTmp = fabs(diag(i2)) + fabs(diag(i2 + 1));
+
                         if (fabs(sub_diag(i2)) + fTmp == fTmp)
                             break;
                     }
+
                     if (i2 == i0)
                         break;
-                    real_type fG =
-                        (diag(i0 + 1) - diag(i0)) / (value_traits::two() * sub_diag(i0));
+
+                    real_type fG = (diag(i0 + 1) - diag(i0)) / (value_traits::two() *
+                        sub_diag(i0));
                     real_type fR = sqrt(fG * fG + value_traits::one());
+
                     if (fG < value_traits::zero())
                         fG = diag(i2) - diag(i0) + sub_diag(i0) / (fG - fR);
                     else
@@ -103,6 +112,7 @@ namespace opentissue {
                     for (int i3 = i2 - 1; i3 >= i0; --i3) {
                         real_type fF = fSin * sub_diag(i3);
                         real_type fB = fCos * sub_diag(i3);
+
                         if (fabs(fF) >= fabs(fG)) {
                             fCos = fG / fF;
                             fR = sqrt(fCos * fCos + value_traits::one());
@@ -117,117 +127,120 @@ namespace opentissue {
                             fCos = value_traits::one() / fR;
                             fSin *= fCos;
                         }
+
                         fG = diag(i3 + 1) - fP;
                         fR = (diag(i3) - fG) * fSin + value_traits::two() * fB * fCos;
                         fP = fSin * fR;
                         diag(i3 + 1) = fG + fP;
                         fG = fCos * fR - fB;
+
                         for (int i4 = 0; i4 < dim; ++i4) {
                             fF = V(i4, i3 + 1);
                             V(i4, i3 + 1) = fSin * V(i4, i3) + fCos * fF;
                             V(i4, i3) = fCos * V(i4, i3) - fSin * fF;
                         }
                     }
+
                     diag(i0) -= fP;
                     sub_diag(i0) = fG;
                     sub_diag(i2) = value_traits::zero();
                 }
+
                 if (i1 == max_iterations)
                     break;
             }
         }
 
-		template <typename matrix_type, typename real_type>
-		inline void polar_decomposition(matrix_type const &A, unsigned int max_iterations,
-			real_type const &tolerance, matrix_type &U,
-			matrix_type &P) {
-			typedef typename matrix_type::value_type real_type;
+        template <typename matrix_type, typename real_type>
+        inline void polar_decomposition(matrix_type const &A, unsigned int max_iterations,
+            real_type const &tolerance, matrix_type &U, matrix_type &P) {
+            typedef typename matrix_type::value_traits value_traits;
 
-			using std::fabs;
-			using std::sqrt;
+            using std::pow;
 
-			U = A;
-			P = A.inverse();
+            U = A;
+            P = math::inverse(A);
 
-			for (unsigned int i = 0; i < imax; i++) {
-				Float uOneNorm = u.oneNorm();
+            for (unsigned int i = 0; i < max_iterations; ++i) {
+                real_type u_one_norm = math::norm_1(U);
 
-				Float uNorm = u.infinityNorm() * uOneNorm;
-				Float pNorm = p.infinityNorm() * p.oneNorm();
+                real_type u_norm = math::norm_inf(U) * u_one_norm;
+                real_type p_norm = math::norm_inf(P) * math::norm_1(P);
 
-				if (uNorm == 0 || pNorm == 0)
-					break;
+                if (u_norm == value_traits::zero() || p_norm == value_traits::zero())
+                    break;
 
-				Float g = math::pow(pNorm / uNorm, 0.25);
-				math::Matrix d = 0.5 * (u * (g - 2.0) + p.transposed() / g);
+                real_type gamma = pow(p_norm / u_norm, 0.25);
+                matrix_type D = value_traits::half() * (U * (gamma - value_traits::two()) +
+                    math::trans(P) / gamma);
 
-				u += d;
-				p = u.inverse();
+                U += D;
+                P = math::inverse(U);
 
-				if (d.oneNorm() <= eps * uOneNorm) {
-					p = u.transposed() * a;
-					p = 0.5 * (p + p.transposed());
+                if (math::norm_1(D) <= tolerance * u_one_norm) {
+                    P = math::trans(U) * A;
+                    P = value_traits::half() * (P + math::trans(P));
 
-					return;
-				}
-			}
+                    return;
+                }
+            }
 
-			p = u.transposed() * a;
-			p = 0.5 * (p + p.transposed());
-		}
-		
-		template <typename matrix_type>
-		inline void qr_decomposition(matrix_type const &A, matrix_type &Q,
-			matrix_type &R) {
-			typedef typename matrix_type::value_type real_type;
-			typedef typename matrix_type::value_traits value_traits;
-			typedef typename matrix_type::vector_type vector_type;
+            P = math::trans(U) * A;
+            P = value_traits::half() * (P + math::trans(P));
+        }
 
-			using std::fabs;
+        template <typename matrix_type>
+        inline void qr_decomposition(matrix_type const &A, matrix_type &Q,
+            matrix_type &R) {
+            typedef typename matrix_type::value_type real_type;
+            typedef typename matrix_type::value_traits value_traits;
+            typedef typename matrix_type::vector_type vector_type;
 
-			Q(0, 0) = value_traits::one();
-			Q(0, 1) = value_traits::zero();
-			Q(0, 2) = value_traits::zero();
-			Q(1, 0) = value_traits::zero();
-			Q(1, 1) = value_traits::one();
-			Q(1, 2) = value_traits::zero();
-			Q(2, 0) = value_traits::zero();
-			Q(2, 1) = value_traits::zero();
-			Q(2, 2) = value_traits::one();
+            Q(0, 0) = value_traits::one();
+            Q(0, 1) = value_traits::zero();
+            Q(0, 2) = value_traits::zero();
+            Q(1, 0) = value_traits::zero();
+            Q(1, 1) = value_traits::one();
+            Q(1, 2) = value_traits::zero();
+            Q(2, 0) = value_traits::zero();
+            Q(2, 1) = value_traits::zero();
+            Q(2, 2) = value_traits::one();
 
-			R = A;
+            R = A;
 
-			for (unsigned int i = 0; i < 3; i++) {
-				vector_type v;
+            const int dim = 3;
 
-				for (unsigned j = i; j < 3; j++)
-					v(j) = R(j, i);
+            for (unsigned int i = 0; i < dim; ++i) {
+                vector_type v;
 
-				v(i) += math::sign(v[i]) * math::length(v);
+                for (unsigned int j = i; j < dim; ++j)
+                    v(j) = R(j, i);
 
-				real_type m = math::length(v);
+                v(i) += (v(i) < 0) ? math::length(v) : -math::length(v);
 
-				if (m == 0)
-					continue;
+                real_type m = math::length(v);
 
-				v /= m;
+                if (m == value_traits::zero())
+                    continue;
 
-				matrix_type H;
+                v /= m;
 
-				H[0][0] = 1.0 - 2.0 * v[0] * v[0];
-				H[0][1] = -2.0 * v[0] * v[1];
-				H[0][2] = -2.0 * v[0] * v[2];
-				H[1][0] = H[0][1];
-				H[1][1] = 1.0 - 2.0 * v[1] * v[1];
-				H[1][2] = -2.0 * v[1] * v[2];
-				H[2][0] = H[0][2];
-				H[2][1] = H[1][2];
-				H[2][2] = 1.0 - 2.0 * v[2] * v[2];
+                matrix_type H;
 
-				R = H * R;
-				Q *= H;
-			}
-		}
+                H(0, 0) = value_traits::one() - value_traits::two() * v(0) * v(0);
+                H(0, 1) = -value_traits::two() * v(0) * v(1);
+                H(0, 2) = -value_traits::two() * v(0) * v(2);
+                H(1, 0) = H(0, 1);
+                H(1, 1) = value_traits::one() - value_traits::two() * v(1) * v(1);
+                H(1, 2) = -value_traits::two() * v(1) * v(2);
+                H(2, 0) = H(0, 2);
+                H(2, 1) = H(1, 2);
+                H(2, 2) = value_traits::one() - value_traits::two() * v(2) * v(2);
+
+                R = H * R;
+                Q = Q * H;
+            }
+        }
     }
 }
 

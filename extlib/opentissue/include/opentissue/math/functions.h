@@ -20,20 +20,20 @@ namespace opentissue {
         inline T clamp(T const &value, T const &min_value, T const &max_value) {
             assert(min_value <= max_value || !"Maximum value cannot be "
                 "less than minimum value.");
-            using std::max;
-            using std::min;
+            using std::fmax;
+            using std::fmin;
 
-            return T(min(max_value, max(min_value, value)));
+            return T(fmin(max_value, fmax(min_value, value)));
         }
 
         template <typename T> inline T clamp_min(T const &value, T const &min_value) {
-            using std::max;
-            return clamp(value, min_value, max(value, min_value));
+            using std::fmax;
+            return clamp(value, min_value, fmax(value, min_value));
         }
 
         template <typename T> inline T clamp_max(T const &value, T const &max_value) {
-            using std::min;
-            return clamp(value, min(value, max_value), max_value);
+            using std::fmin;
+            return clamp(value, fmin(value, max_value), max_value);
         }
 
         template <typename T> inline T clamp_zero_one(T const &value) {

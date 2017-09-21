@@ -177,13 +177,13 @@ namespace opentissue {
             }
 
             friend Vector min(Vector const &A, Vector const &B) {
-                using std::min;
-                return Vector(min(A(0), B(0)), min(A(1), B(1)), min(A(2), B(2)));
+                using std::fmin;
+                return Vector(fmin(A(0), B(0)), fmin(A(1), B(1)), fmin(A(2), B(2)));
             }
 
             friend Vector max(Vector const &A, Vector const &B) {
-                using std::max;
-                return Vector(max(A(0), B(0)), max(A(1), B(1)), max(A(2), B(2)));
+                using std::fmax;
+                return Vector(fmax(A(0), B(0)), fmax(A(1), B(1)), fmax(A(2), B(2)));
             }
 
             friend Vector floor(Vector const &v) {
@@ -255,13 +255,13 @@ namespace opentissue {
         }
 
         template <typename T> inline T min_value(Vector<T> const &v) {
-            using std::min;
+            using std::fmin;
             return min(v(0), min(v(1), v(2)));
         }
 
         template <typename T> inline T max_value(Vector<T> const &v) {
-            using std::max;
-            return max(v(0), max(v(1), v(2)));
+            using std::fmax;
+            return fmax(v(0), fmax(v(1), v(2)));
         }
 
         template <typename T> inline T mid_value(Vector<T> const &v) {
@@ -332,8 +332,8 @@ namespace opentissue {
 
         template <typename T> inline T norm_1(Vector<T> const &v) {
             using std::fabs;
-            using std::max;
-            return max(fabs(v(0)), max(fabs(v(1)), fabs(v(2))));
+            using std::fmax;
+            return fmax(fabs(v(0)), fmax(fabs(v(1)), fabs(v(2))));
         }
 
         template <typename T>

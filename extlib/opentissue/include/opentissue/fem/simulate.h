@@ -33,7 +33,8 @@ namespace opentissue {
 
             detail::clear_stiffness_assembly(mesh.node_begin(), mesh.node_end());
 
-            detail::update_orientation(mesh.tetrahedron_begin(), mesh.tetrahedron_end());
+            detail::update_orientation(mesh.tetrahedron_begin(), mesh.tetrahedron_end(),
+                max_iterations);
 
             detail::stiffness_assembly(mesh.tetrahedron_begin(), mesh.tetrahedron_end());
             detail::add_plasticity_force(mesh.tetrahedron_begin(), mesh.tetrahedron_end(),

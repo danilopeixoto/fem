@@ -96,6 +96,7 @@ namespace opentissue {
                 m_row0 = cpy.m_row0;
                 m_row1 = cpy.m_row1;
                 m_row2 = cpy.m_row2;
+
                 return *this;
             }
 
@@ -559,27 +560,27 @@ namespace opentissue {
         }
 
         template <typename T> inline T max_value(Matrix<T> const &A) {
-            using std::max;
+            using std::fmax;
 
-            return max(
+            return fmax(
                 A(0, 0),
-                max(A(0, 1),
-                    max(A(0, 2),
-                        max(A(1, 0),
-                            max(A(1, 1),
-                                max(A(1, 2), max(A(2, 0), max(A(2, 1), A(2, 2)))))))));
+                fmax(A(0, 1),
+                    fmax(A(0, 2),
+                        fmax(A(1, 0),
+                            fmax(A(1, 1),
+                                fmax(A(1, 2), fmax(A(2, 0), fmax(A(2, 1), A(2, 2)))))))));
         }
 
         template <typename T> inline T min_value(Matrix<T> const &A) {
-            using std::min;
+            using std::fmin;
 
-            return min(
+            return fmin(
                 A(0, 0),
-                min(A(0, 1),
-                    min(A(0, 2),
-                        min(A(1, 0),
-                            min(A(1, 1),
-                                min(A(1, 2), min(A(2, 0), min(A(2, 1), A(2, 2)))))))));
+                fmin(A(0, 1),
+                    fmin(A(0, 2),
+                        fmin(A(1, 0),
+                            fmin(A(1, 1),
+                                fmin(A(1, 2), fmin(A(2, 0), fmin(A(2, 1), A(2, 2)))))))));
         }
 
         template <typename T> inline T det(Matrix<T> const &A) {
@@ -594,36 +595,36 @@ namespace opentissue {
 
         template <typename T> inline T norm_1(Matrix<T> const &A) {
             using std::fabs;
-            using std::max;
+            using std::fmax;
 
             T r0 = fabs(A(0, 0)) + fabs(A(0, 1)) + fabs(A(0, 2));
             T r1 = fabs(A(1, 0)) + fabs(A(1, 1)) + fabs(A(1, 2));
             T r2 = fabs(A(2, 0)) + fabs(A(2, 1)) + fabs(A(2, 2));
 
-            return max(r0, max(r1, r2));
+            return fmax(r0, fmax(r1, r2));
         }
 
         template <typename T> inline T norm_2(Matrix<T> const &A) {
             using std::fabs;
-            using std::max;
+            using std::fmax;
             using std::sqrt;
 
             Matrix<T> V;
             typename Matrix<T>::vector_type d;
             math::eigen(A, V, d);
 
-            T lambda = max(fabs(d(0)), max(fabs(d(1)), fabs(d(2))));
+            T lambda = fmax(fabs(d(0)), fmax(fabs(d(1)), fabs(d(2))));
             return sqrt(lambda);
         }
 
         template <typename T> inline T norm_inf(Matrix<T> const &A) {
             using std::fabs;
-            using std::max;
+            using std::fmax;
 
             T c0 = fabs(A(0, 0)) + fabs(A(1, 0)) + fabs(A(2, 0));
             T c1 = fabs(A(0, 1)) + fabs(A(1, 1)) + fabs(A(2, 1));
             T c2 = fabs(A(0, 2)) + fabs(A(1, 2)) + fabs(A(2, 2));
-            return max(c0, max(c1, c2));
+            return fmax(c0, fmax(c1, c2));
         }
 
         template <typename T>
