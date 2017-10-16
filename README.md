@@ -1,5 +1,5 @@
 # FEM
-A plugin to simulate finite elements in Maya.
+A plugin for deformable body simulation in Maya.
 
 Notes
 -----
