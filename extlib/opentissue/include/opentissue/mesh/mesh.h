@@ -11,9 +11,7 @@
 #include <opentissue/configuration.h>
 
 #include <opentissue/mesh/tetrahedral_mesh.h>
-#include <opentissue/mesh/boundary_faces.h>
 #include <opentissue/mesh/tetrahedron.h>
-#include <opentissue/mesh/edges.h>
 #include <opentissue/mesh/node.h>
 
 #endif

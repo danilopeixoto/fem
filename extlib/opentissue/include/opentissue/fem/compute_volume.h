@@ -13,14 +13,11 @@
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename vector_type>
+            template<typename vector_type>
             inline typename vector_type::value_type
-                compute_volume(vector_type const &e10, vector_type const &e20,
-                    vector_type const &e30) {
-                typedef typename vector_type::value_type real_type;
-                real_type sixV = e10 * (e20 % e30);
-
-                return sixV / 6.0;
+                compute_volume(vector_type const &e10,
+                    vector_type const &e20, vector_type const &e30) {
+                return e10 * (e20 % e30) / 6.0;
             }
         }
     }

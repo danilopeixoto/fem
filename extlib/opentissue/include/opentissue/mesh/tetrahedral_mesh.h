@@ -10,22 +10,19 @@
 
 #include <opentissue/configuration.h>
 
-#include <opentissue/math/constants.h>
-#include <opentissue/math/basic_types.h>
+#include <opentissue/math/math.h>
 #include <opentissue/mesh/core_access.h>
 #include <opentissue/mesh/node.h>
 #include <opentissue/mesh/tetrahedron.h>
-#include <opentissue/mesh/default_point_container.h>
 #include <opentissue/mesh/default_traits.h>
 
-#include <cassert>
-#include <vector>
+#include <tbb/concurrent_vector.h>
 
 namespace opentissue {
     namespace mesh {
-        template <typename M = opentissue::math::BasicMathTypes<double, size_t>,
-            typename N = mesh::DefaultNodeTraits<M>,
-            typename T = mesh::DefaultTetrahedronTraits>
+        template<typename M = opentissue::math::Types<double, size_t>,
+            typename N = DefaultNodeTraits<M>,
+            typename T = DefaultTetrahedronTraits>
             class TetrahedralMesh {
             public:
                 typedef M math_types;
@@ -35,15 +32,17 @@ namespace opentissue {
                 typedef Node<tetrahedral_mesh_type> node_type;
                 typedef Tetrahedron<tetrahedral_mesh_type> tetrahedron_type;
                 typedef size_t index_type;
+                typedef typename node_type::tetrahedron_circulator tetrahedron_circulator;
 
                 static index_type const &undefined() {
                     static index_type value = math::detail::highest<index_type>();
+
                     return value;
                 }
 
             protected:
-                typedef std::vector<node_type> node_container;
-                typedef std::vector<tetrahedron_type> tetrahedra_container;
+                typedef tbb::concurrent_vector<node_type> node_container;
+                typedef tbb::concurrent_vector<tetrahedron_type> tetrahedra_container;
 
                 node_container m_nodes;
                 tetrahedra_container m_tetrahedra;
@@ -81,77 +80,96 @@ namespace opentissue {
                     return m_nodes.cend();
                 }
 
-            public:
-                TetrahedralMesh() : m_nodes(), m_tetrahedra() {}
+                TetrahedralMesh() {}
 
-                TetrahedralMesh(TetrahedralMesh const & cpy) { *this = cpy; }
+                TetrahedralMesh(TetrahedralMesh const & copy) { *this = copy; }
+
+                TetrahedralMesh(size_t size_nodes, size_t size_tetrahedra) {
+                    m_nodes.reserve(size_nodes);
+                    m_tetrahedra.reserve(size_tetrahedra);
+                }
 
                 TetrahedralMesh &operator=(TetrahedralMesh const &rhs) {
                     this->m_nodes = rhs.m_nodes;
                     this->m_tetrahedra = rhs.m_tetrahedra;
 
-                    for (node_iterator n = this->node_begin(); n != this->node_end(); ++n)
-                        core_access::set_owner((*n), this);
+                    for (node_iterator n = this->node_begin(); n != this->node_end(); n++)
+                        CoreAccess::set_owner(*n, this);
 
                     for (tetrahedron_iterator t = this->tetrahedron_begin();
-                        t != this->tetrahedron_end(); ++t)
-                        core_access::set_owner((*t), this);
+                        t != this->tetrahedron_end(); t++)
+                        CoreAccess::set_owner(*t, this);
 
-                    return (*this);
+                    return *this;
                 }
 
-            public:
+                void update_mesh_data() {
+                    m_nodes.shrink_to_fit();
+                    m_tetrahedra.shrink_to_fit();
+                }
+
                 void clear() {
                     m_nodes.clear();
                     m_tetrahedra.clear();
                 }
 
                 node_iterator node(index_type idx) {
-                    if (!(idx >= 0 && idx < size_nodes()))
-                        throw std::out_of_range("Node index out of range.");
-
                     return m_nodes.begin() + idx;
                 }
 
                 const_node_iterator const_node(index_type idx) const {
-                    if (!(idx >= 0 && idx < size_nodes()))
-                        throw std::out_of_range("Node index out of range.");
-
-                    return m_nodes.const_begin() + idx;
+                    return m_nodes.cbegin() + idx;
                 }
 
                 tetrahedron_iterator tetrahedron(index_type idx) {
-                    if (!(idx >= 0 && idx < size_tetrahedra()))
-                        throw std::out_of_range("Tetrahedron index out of range.");
-
                     return m_tetrahedra.begin() + idx;
                 }
 
-                const_tetrahedron_iterator tetrahedron(index_type idx) const {
-                    if (!(idx >= 0 && idx < size_tetrahedra()))
-                        throw std::out_of_range("Tetrahedron index out of range.");
-
-                    return m_tetrahedra.const_begin() + idx;
+                const_tetrahedron_iterator const_tetrahedron(index_type idx) const {
+                    return m_tetrahedra.cbegin() + idx;
                 }
 
                 size_t size_nodes() const { return m_nodes.size(); }
                 size_t size_tetrahedra() const { return m_tetrahedra.size(); }
 
-            public:
                 node_iterator insert() {
                     m_nodes.push_back(node_type());
+
                     node_type &nd = m_nodes.back();
-                    core_access::set_index(nd, size_nodes() - 1);
-                    core_access::set_owner(nd, this);
+                    CoreAccess::set_index(nd, size_nodes() - 1);
+                    CoreAccess::set_owner(nd, this);
+
                     return m_nodes.begin() + nd.idx();
                 }
 
-                template <typename vector_type>
-                node_iterator insert(vector_type const & m_model_coord) {
+                template<typename vector_type>
+                node_iterator insert(vector_type const & m_coord) {
                     node_iterator node = insert();
-                    node->m_model_coord = m_model_coord;
+                    node->m_coord = m_coord;
 
                     return node;
+                }
+
+                tetrahedron_iterator insert(node_iterator i, node_iterator j, node_iterator k,
+                    node_iterator m) {
+                    m_tetrahedra.push_back(tetrahedron_type());
+
+                    tetrahedron_type &t = m_tetrahedra.back();
+
+                    CoreAccess::set_index(t, size_tetrahedra() - 1);
+                    CoreAccess::set_owner(t, this);
+
+                    CoreAccess::set_node0(t, i->idx());
+                    CoreAccess::set_node1(t, j->idx());
+                    CoreAccess::set_node2(t, k->idx());
+                    CoreAccess::set_node3(t, m->idx());
+
+                    CoreAccess::tetrahedra_push_back(*i, t.idx());
+                    CoreAccess::tetrahedra_push_back(*j, t.idx());
+                    CoreAccess::tetrahedra_push_back(*k, t.idx());
+                    CoreAccess::tetrahedra_push_back(*m, t.idx());
+
+                    return m_tetrahedra.begin() + t.idx();
                 }
 
                 tetrahedron_iterator insert(index_type i, index_type j, index_type k,
@@ -160,114 +178,62 @@ namespace opentissue {
                         m_nodes.begin() + k, m_nodes.begin() + m);
                 }
 
-                tetrahedron_iterator insert(node_iterator i, node_iterator j, node_iterator k,
-                    node_iterator m) {
-                    verify_nodes(i, j, k, m);
-
-                    assert(find(i, j, k, m) == tetrahedron_end() ||
-                        !"Duplicate tetrahedron found.");
-
-                    m_tetrahedra.push_back(tetrahedron_type());
-                    tetrahedron_type &t = m_tetrahedra.back();
-
-                    core_access::set_index(t, size_tetrahedra() - 1);
-                    core_access::set_owner(t, this);
-                    core_access::set_node0(t, i->idx());
-                    core_access::set_node1(t, j->idx());
-                    core_access::set_node2(t, k->idx());
-                    core_access::set_node3(t, m->idx());
-
-                    core_access::tetrahedra_push_back(*i, t.idx());
-                    core_access::tetrahedra_push_back(*j, t.idx());
-                    core_access::tetrahedra_push_back(*k, t.idx());
-                    core_access::tetrahedra_push_back(*m, t.idx());
-
-                    return m_tetrahedra.begin() + t.idx();
-                }
-
                 tetrahedron_iterator find(node_iterator i, node_iterator j, node_iterator k,
                     node_iterator m) {
-                    verify_nodes(i, j, k, m);
-
-                    typename node_type::tetrahedron_circulator tit = i->begin();
-
-                    for (; tit != i->end(); ++tit) {
-                        if (tit->node_idx(0) == i->idx() && tit->node_idx(1) == j->idx() &&
-                            tit->node_idx(2) == k->idx() && tit->node_idx(3) == m->idx())
-                            return m_tetrahedra.begin() + tit->idx();
+                    for (tetrahedron_circulator it = i->begin(); it != i->end(); it++) {
+                        if (it->node_idx(0) == i->idx() && it->node_idx(1) == j->idx() &&
+                            it->node_idx(2) == k->idx() && it->node_idx(3) == m->idx())
+                            return m_tetrahedra.begin() + it->idx();
                     }
 
-                    return m_tetrahedra.begin() + size_tetrahedra();
+                    return m_tetrahedra.end();
                 }
 
                 tetrahedron_iterator erase(tetrahedron_iterator &where) {
-                    verify_tetrahedron(where);
-
-                    tetrahedron_iterator I = tetrahedron(size_tetrahedra() - 1);
+                    tetrahedron_iterator I(m_tetrahedra.end() - 1);
                     tetrahedron_iterator last(m_tetrahedra.begin() + I->idx());
 
-                    if (where != last) {
+                    if (where != last)
                         this->swap(where, last);
-                    }
 
                     this->unlink(last);
-
                     m_tetrahedra.pop_back();
+
                     return where;
                 }
 
             protected:
                 void unlink(tetrahedron_iterator &I) {
-                    verify_tetrahedron(I);
-
                     node_iterator i = I->i();
                     node_iterator j = I->j();
                     node_iterator k = I->k();
                     node_iterator m = I->m();
 
-                    verify_nodes(i, j, k, m);
+                    CoreAccess::tetrahedra_remove(*i, I->idx());
+                    CoreAccess::tetrahedra_remove(*j, I->idx());
+                    CoreAccess::tetrahedra_remove(*k, I->idx());
+                    CoreAccess::tetrahedra_remove(*m, I->idx());
 
-                    core_access::tetrahedra_remove(*i, I->idx());
-                    core_access::tetrahedra_remove(*j, I->idx());
-                    core_access::tetrahedra_remove(*k, I->idx());
-                    core_access::tetrahedra_remove(*m, I->idx());
-
-                    core_access::set_node0(*I, this->undefined());
-                    core_access::set_node1(*I, this->undefined());
-                    core_access::set_node2(*I, this->undefined());
-                    core_access::set_node3(*I, this->undefined());
+                    CoreAccess::set_node0(*I, this->undefined());
+                    CoreAccess::set_node1(*I, this->undefined());
+                    CoreAccess::set_node2(*I, this->undefined());
+                    CoreAccess::set_node3(*I, this->undefined());
                 }
 
                 void link(tetrahedron_iterator &I, node_iterator &i, node_iterator &j,
                     node_iterator &k, node_iterator &m) {
-                    verify_tetrahedron(I);
+                    CoreAccess::tetrahedra_push_back(*i, I->idx());
+                    CoreAccess::tetrahedra_push_back(*j, I->idx());
+                    CoreAccess::tetrahedra_push_back(*k, I->idx());
+                    CoreAccess::tetrahedra_push_back(*m, I->idx());
 
-                    if (I->node_idx(0) != this->undefined() ||
-                        I->node_idx(1) != this->undefined() ||
-                        I->node_idx(2) != this->undefined() ||
-                        I->node_idx(3) != this->undefined())
-                        throw std::invalid_argument("Undefined node on tetrahedron.");
-
-                    verify_nodes(i, j, k, m);
-
-                    core_access::tetrahedra_push_back(*i, I->idx());
-                    core_access::tetrahedra_push_back(*j, I->idx());
-                    core_access::tetrahedra_push_back(*k, I->idx());
-                    core_access::tetrahedra_push_back(*m, I->idx());
-
-                    core_access::set_node0(*I, i->idx());
-                    core_access::set_node1(*I, j->idx());
-                    core_access::set_node2(*I, k->idx());
-                    core_access::set_node3(*I, m->idx());
+                    CoreAccess::set_node0(*I, i->idx());
+                    CoreAccess::set_node1(*I, j->idx());
+                    CoreAccess::set_node2(*I, k->idx());
+                    CoreAccess::set_node3(*I, m->idx());
                 }
 
                 void swap(tetrahedron_iterator &A, tetrahedron_iterator &B) {
-                    if (A == B)
-                        throw std::invalid_argument("Same element to swap.");
-
-                    verify_tetrahedron(A);
-                    verify_tetrahedron(B);
-
                     index_type Aidx = A->idx();
                     index_type Bidx = B->idx();
 
@@ -276,14 +242,10 @@ namespace opentissue {
                     node_iterator Ak = A->k();
                     node_iterator Am = A->m();
 
-                    verify_nodes(Ai, Aj, Ak, Am);
-
                     node_iterator Bi = B->i();
                     node_iterator Bj = B->j();
                     node_iterator Bk = B->k();
                     node_iterator Bm = B->m();
-
-                    verify_nodes(Bi, Bj, Bk, Bm);
 
                     unlink(A);
                     unlink(B);
@@ -295,36 +257,11 @@ namespace opentissue {
                     (*TA) = (*TB);
                     (*TB) = tmp;
 
-                    core_access::set_index(*A, Aidx);
-                    core_access::set_index(*B, Bidx);
+                    CoreAccess::set_index(*A, Aidx);
+                    CoreAccess::set_index(*B, Bidx);
 
                     link(A, Bi, Bj, Bk, Bm);
                     link(B, Ai, Aj, Ak, Am);
-                }
-
-            protected:
-                void verify_nodes(node_iterator const &i, node_iterator const &j,
-                    node_iterator const &k, node_iterator const &m) const {
-                    if (i->owner() != this || j->owner() != this ||
-                        k->owner() != this || m->owner() != this)
-                        throw std::logic_error("Node don't belong to mesh.");
-
-                    if (!(i->idx() >= 0 && i->idx() < size_nodes()) ||
-                        !(j->idx() >= 0 && j->idx() < size_nodes()) ||
-                        !(k->idx() >= 0 && k->idx() < size_nodes()) ||
-                        !(m->idx() >= 0 && m->idx() < size_nodes()))
-                        throw std::out_of_range("Node index out of range.");
-
-                    if (i == j || i == k || i == m || j == k || j == m || k == m)
-                        throw std::logic_error("Invalid tetrahedron.");
-                }
-
-                void verify_tetrahedron(tetrahedron_iterator const &I) const {
-                    if (!((I->idx() >= 0) && (I->idx() < size_tetrahedra())))
-                        throw std::out_of_range("Tetrahedron index out of range.");
-
-                    if (I->owner() != this)
-                        throw std::logic_error("Tetrahedron don't belong to mesh.");
                 }
         };
     }

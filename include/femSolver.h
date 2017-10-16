@@ -43,13 +43,11 @@ class FEMSolver : public MPxNode {
 public:
     static MObject enableObject;
     static MObject startTimeObject;
-    static MObject currentTimeObject;
     static MObject substepsObject;
     static MObject gravityXObject;
     static MObject gravityYObject;
     static MObject gravityZObject;
     static MObject gravityObject;
-    static MObject scaleObject;
     static MObject maximumIterationsObject;
     static MObject currentStateObject;
     static MObject outputStateObject;
@@ -65,11 +63,10 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    void runSubstep(TetrahedralMesh *, const FEMObjectData *,
-        const MVector &, double, int) const;
-    void scaleTetrahedralMesh(TetrahedralMesh *, double) const;
+    void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
 
-    int getFramerate() const;
+    static double getStartTime();
+    static double getFramerate();
 };
 
 #endif

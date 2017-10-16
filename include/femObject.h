@@ -35,13 +35,14 @@
 #include <maya/MTypeId.h>
 #include <maya/MString.h>
 #include <maya/MStatus.h>
-#include <maya/MMatrix.h>
 #include <maya/MPlug.h>
+#include <maya/MPlugArray.h>
 #include <maya/MDataBlock.h>
 
 class FEMObject : public MPxNode {
 public:
     static MObject enableObject;
+    static MObject passiveObject;
     static MObject densityObject;
     static MObject poissonsRatioObject;
     static MObject youngsModulusObject;
@@ -51,7 +52,6 @@ public:
     static MObject maximumYieldStrengthObject;
     static MObject creepRateObject;
     static MObject frictionObject;
-    static MObject passiveObject;
     static MObject initialVelocityXObject;
     static MObject initialVelocityYObject;
     static MObject initialVelocityZObject;
@@ -78,11 +78,13 @@ public:
 
     static void * creator();
     static MStatus initialize();
+    virtual MStatus	setDependentsDirty(const MPlug &, MPlugArray &);
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    void createOutputMesh(const FEMObjectData *, MObject &) const;
-    void transformMesh(MObject &, const MMatrix &) const;
+    FEMParameters parameters;
+
+    void updateOutputMesh(const FEMObjectData *, MObject &) const;
 };
 
 #endif

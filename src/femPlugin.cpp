@@ -62,9 +62,6 @@ MStatus uninitializePlugin(MObject object) {
     MStatus status;
     MFnPlugin plugin(object);
 
-    status = plugin.deregisterData(FEMObjectData::id);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
     status = plugin.deregisterNode(FEMMesh::id);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -72,6 +69,9 @@ MStatus uninitializePlugin(MObject object) {
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     status = plugin.deregisterNode(FEMSolver::id);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    status = plugin.deregisterData(FEMObjectData::id);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     return status;

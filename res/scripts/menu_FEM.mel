@@ -30,4 +30,8 @@ global proc menu_FEM() {
 
     menuItem -label "Active FEM Object" -command "createFEMObject false";
     menuItem -label "Passive FEM Object" -command "createFEMObject true";
+
+    menuItem -divider true -dividerLabel "Delete";
+
+    menuItem -label "Delete FEM System" -command "deleteFEMSystem";
 }

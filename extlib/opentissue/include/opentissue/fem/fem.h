@@ -13,6 +13,7 @@
 #include <opentissue/fem/mesh.h>
 #include <opentissue/fem/initialize.h>
 #include <opentissue/fem/simulate.h>
+#include <opentissue/fem/update_parameters.h>
 #include <opentissue/fem/utility.h>
 
 #endif

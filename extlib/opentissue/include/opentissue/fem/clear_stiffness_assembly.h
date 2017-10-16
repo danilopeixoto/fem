@@ -13,14 +13,18 @@
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename node_iterator>
-            inline void clear_stiffness_assembly(node_iterator begin, node_iterator end) {
-                for (node_iterator node = begin; node != end; ++node) {
-                    typedef typename node_iterator::value_type::matrix_iterator matrix_iterator;
+            template<typename fem_mesh>
+            inline void clear_stiffness_assembly(fem_mesh &mesh) {
+                typedef typename fem_mesh::node_iterator node_iterator;
+                typedef typename fem_mesh::node_type::matrix_iterator matrix_iterator;
 
-                    node->m_f0.clear();
+                node_iterator nbegin = mesh.node_begin();
+                node_iterator nend = mesh.node_end();
 
-                    for (matrix_iterator Kij = node->Kbegin(); Kij != node->Kend(); ++Kij)
+                for (node_iterator n = nbegin; n != nend; n++) {
+                    n->m_f0.clear();
+
+                    for (matrix_iterator Kij = n->Kbegin(); Kij != n->Kend(); Kij++)
                         Kij->second.clear();
                 }
             }

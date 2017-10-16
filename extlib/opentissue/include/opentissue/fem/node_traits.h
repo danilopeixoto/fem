@@ -10,50 +10,50 @@
 
 #include <opentissue/configuration.h>
 
-#include <map>
+#include <unordered_map>
 
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename math_types> class NodeTraits {
+            template<typename math_types> class NodeTraits {
             public:
                 typedef typename math_types::real_type real_type;
                 typedef typename math_types::vector_type vector_type;
                 typedef typename math_types::matrix_type matrix_type;
+                typedef typename math_types::index_type index_type;
 
-                typedef typename std::map<int, matrix_type> matrix_container;
+                typedef typename std::unordered_map<index_type, matrix_type> matrix_container;
                 typedef typename matrix_container::iterator matrix_iterator;
 
             public:
+                bool m_fixed;
+
+                real_type m_mass;
+
+                vector_type m_f0;
+                vector_type m_f_external;
+                vector_type m_velocity;
+
+                vector_type m_coord;
+                vector_type m_world_coord;
+
                 matrix_container m_K_row;
 
                 matrix_container m_A_row;
-                vector_type m_f0;
                 vector_type m_b;
-
-                bool m_fixed;
-
-                vector_type m_model_coord;
-                vector_type m_coord;
-
-                vector_type m_velocity;
-                real_type m_mass;
-                vector_type m_f_external;
 
                 vector_type m_update;
                 vector_type m_prev;
                 vector_type m_residual;
 
-            public:
                 matrix_iterator Kbegin() { return m_K_row.begin(); }
                 matrix_iterator Kend() { return m_K_row.end(); }
                 matrix_iterator Abegin() { return m_A_row.begin(); }
                 matrix_iterator Aend() { return m_A_row.end(); }
 
-                matrix_type &K(int const &column_idx) { return m_K_row[column_idx]; }
-                matrix_type &A(int const &column_idx) { return m_A_row[column_idx]; }
+                matrix_type &K(unsigned int const &column_idx) { return m_K_row[column_idx]; }
+                matrix_type &A(unsigned int const &column_idx) { return m_A_row[column_idx]; }
 
-            public:
                 NodeTraits() : m_fixed(false) {}
             };
         }

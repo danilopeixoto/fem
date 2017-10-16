@@ -28,13 +28,21 @@
 global proc shelf_FEM() {
     shelfButton
         -label "Active FEM Object"
-        -annotation "FEM Object: Select a polygon object to create an active finite element object."
+        -annotation "Active FEM Object: Select a polygon object to create an active finite element object."
         -image1 "activeFEMObject.png"
         -command "createFEMObject false";
 
     shelfButton
         -label "Passive FEM Object"
-        -annotation "FEM Object: Select a polygon object to create a passive finite element object."
+        -annotation "Passive FEM Object: Select a polygon object to create a passive finite element object."
         -image1 "passiveFEMObject.png"
         -command "createFEMObject true";
+
+    addShelfSeparator();
+
+    shelfButton
+        -label "Delete FEM System"
+        -annotation "Delete FEM System: Remove the entire FEM system in the scene."
+        -image1 "deleteFEMSystem.png"
+        -command "deleteFEMSystem";
 }

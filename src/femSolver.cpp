@@ -27,7 +27,6 @@
 
 #include "femSolver.h"
 
-#include <maya/MGlobal.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -38,16 +37,16 @@
 #include <maya/MArrayDataHandle.h>
 #include <maya/MArrayDataBuilder.h>
 #include <maya/MFnMesh.h>
+#include <maya/MAnimControl.h>
+#include <maya/MGlobal.h>
 
 MObject FEMSolver::enableObject;
 MObject FEMSolver::startTimeObject;
-MObject FEMSolver::currentTimeObject;
 MObject FEMSolver::substepsObject;
 MObject FEMSolver::gravityXObject;
 MObject FEMSolver::gravityYObject;
 MObject FEMSolver::gravityZObject;
 MObject FEMSolver::gravityObject;
-MObject FEMSolver::scaleObject;
 MObject FEMSolver::maximumIterationsObject;
 MObject FEMSolver::currentStateObject;
 MObject FEMSolver::outputStateObject;
@@ -71,13 +70,10 @@ MStatus FEMSolver::initialize() {
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
-    startTimeObject = unitAttribute.create("startTime", "st", MFnUnitAttribute::kTime, 1);
+    startTimeObject = unitAttribute.create("startTime", "st", MFnUnitAttribute::kTime, getStartTime());
     unitAttribute.setStorable(true);
 
-    currentTimeObject = unitAttribute.create("currentTime", "t", MFnUnitAttribute::kTime, 0);
-    unitAttribute.setStorable(true);
-
-    substepsObject = numericAttribute.create("substeps", "s", MFnNumericData::kInt, 4);
+    substepsObject = numericAttribute.create("substeps", "s", MFnNumericData::kInt, 2);
     numericAttribute.setMin(0);
     numericAttribute.setSoftMax(10);
     numericAttribute.setStorable(true);
@@ -97,12 +93,6 @@ MStatus FEMSolver::initialize() {
 
     gravityObject = numericAttribute.create("gravity", "g", gravityXObject, gravityYObject, gravityZObject);
     numericAttribute.setDefault(0.0, -9.8, 0.0);
-    numericAttribute.setStorable(true);
-    numericAttribute.setKeyable(true);
-
-    scaleObject = numericAttribute.create("scale", "sc", MFnNumericData::kDouble, 1.0);
-    numericAttribute.setMin(1.0e-3);
-    numericAttribute.setSoftMax(1.0);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -126,20 +116,16 @@ MStatus FEMSolver::initialize() {
 
     addAttribute(enableObject);
     addAttribute(startTimeObject);
-    addAttribute(currentTimeObject);
     addAttribute(substepsObject);
     addAttribute(gravityObject);
-    addAttribute(scaleObject);
     addAttribute(maximumIterationsObject);
     addAttribute(currentStateObject);
     addAttribute(outputStateObject);
 
     attributeAffects(enableObject, outputStateObject);
     attributeAffects(startTimeObject, outputStateObject);
-    attributeAffects(currentTimeObject, outputStateObject);
     attributeAffects(substepsObject, outputStateObject);
     attributeAffects(gravityObject, outputStateObject);
-    attributeAffects(scaleObject, outputStateObject);
     attributeAffects(maximumIterationsObject, outputStateObject);
     attributeAffects(currentStateObject, outputStateObject);
 
@@ -151,108 +137,107 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     if (plug != outputStateObject)
         return MS::kUnknownParameter;
 
-    bool enable = data.inputValue(enableObject).asBool();
+    MDataHandle enableHandle = data.inputValue(enableObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    bool enable = enableHandle.asBool();
 
     if (!enable)
         return MS::kSuccess;
 
-    int startTime = data.inputValue(startTimeObject).asInt();
-    int currentTime = data.inputValue(currentTimeObject).asInt();
+    MDataHandle substepsHandle = data.inputValue(substepsObject);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    if (currentTime < startTime)
-        return MS::kSuccess;
+    MDataHandle gravityHandle = data.inputValue(gravityObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle maximumIterationsHandle = data.inputValue(maximumIterationsObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MArrayDataHandle currentStateArrayHandle = data.inputArrayValue(currentStateObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    if (currentStateArrayHandle.elementCount() == 0)
-        return MS::kSuccess;
-
-    int framerate = getFramerate();
-    int substeps = data.inputValue(substepsObject).asInt() + 1;
-    int maxIterations = data.inputValue(maximumIterationsObject).asInt();
-
-    double timestep = 1.0 / (framerate * substeps);
-
-    MVector gravity = data.inputValue(gravityObject).asVector();
-
     MArrayDataHandle outputStateArrayHandle = data.outputArrayValue(outputStateObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    MArrayDataBuilder arrayDataBuilder = outputStateArrayHandle.builder();
+    int substeps = substepsHandle.asInt();
+    MVector gravity = gravityHandle.asVector();
+    int maximumIterations = maximumIterationsHandle.asInt();
 
-    unsigned int index = 0;
+    int steps = substeps + 1;
+    double timestep = 1.0 / (steps * getFramerate());
 
-    do {
+    unsigned int objectCount = currentStateArrayHandle.elementCount();
+
+    MArrayDataBuilder arrayDataBuilder(outputStateObject, objectCount);
+
+    for (unsigned int i = 0; i < objectCount; i++) {
         MDataHandle currentStateHandle = currentStateArrayHandle.inputValue(&status);
         CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        FEMObjectData * objectData = (FEMObjectData *)currentStateHandle.asPluginData();
-
-        MDataHandle outputStateHandle = arrayDataBuilder.addElement(index++, &status);
+        MDataHandle outputStateHandle = arrayDataBuilder.addElement(i, &status);
         CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        outputStateHandle.set(objectData);
+        outputStateHandle.set(currentStateHandle.asPluginData());
+
+        FEMObjectData * objectData = (FEMObjectData *)outputStateHandle.asPluginData();
 
         if (objectData->isEnable()) {
-            TetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
-
-            for (int i = 0; i < substeps; i++) {
+            for (int s = 0; s < steps; s++) {
                 if (!objectData->isPassive())
-                    runSubstep(tetrahedralMesh, objectData, gravity, timestep, maxIterations);
+                    simulateSubstep(objectData, gravity, timestep, maximumIterations);
             }
-
-            double scale = data.inputValue(scaleObject).asDouble();
-
-            if (currentTime == startTime && scale != 1.0)
-                scaleTetrahedralMesh(tetrahedralMesh, scale);
         }
-    } while (currentStateArrayHandle.next() != MS::kFailure);
 
+        currentStateArrayHandle.next();
+    }
+
+    outputStateArrayHandle.set(arrayDataBuilder);
     data.setClean(plug);
 
     return MS::kSuccess;
 }
 
-void FEMSolver::runSubstep(TetrahedralMesh * tetrahedralMesh, const FEMObjectData * objectData,
+void FEMSolver::simulateSubstep(FEMObjectData * objectData,
     const MVector & gravity, double timestep, int maxIterations) const {
+    FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
+
     opentissue::fem::apply_acceleration(*tetrahedralMesh,
-        Vector(gravity.x, gravity.y, gravity.z));
+        FEMVector(gravity.x, gravity.y, gravity.z));
 
     opentissue::fem::simulate(*tetrahedralMesh, objectData->getMassDamping(),
         objectData->getStiffnessDamping(), timestep, maxIterations);
-}
-void FEMSolver::scaleTetrahedralMesh(TetrahedralMesh * tetrahedralMesh, double scale) const {
-#pragma omp parallel for
 
-    for (int i = 0; i < tetrahedralMesh->size_nodes(); i++) {
-        TetrahedralMesh::node_iterator node = tetrahedralMesh->node(i);
-        node->m_coord *= scale;
-    }
+    opentissue::fem::clear_external_forces(*tetrahedralMesh);
 }
 
-int FEMSolver::getFramerate() const {
-    int framerate = 24;
-
+double FEMSolver::getStartTime() {
+    return MAnimControl::minTime().value();
+}
+double FEMSolver::getFramerate() {
     MString result;
     MGlobal::executeCommand("currentUnit -query -time", result);
 
+    double framerate;
+
     if (result == "game")
-        framerate = 15;
+        framerate = 15.0;
     else if (result == "film")
-        framerate = 24;
+        framerate = 24.0;
     else if (result == "pal")
-        framerate = 25;
+        framerate = 25.0;
     else if (result == "ntsc")
-        framerate = 30;
+        framerate = 30.0;
     else if (result == "show")
-        framerate = 48;
+        framerate = 48.0;
     else if (result == "palf")
-        framerate = 50;
+        framerate = 50.0;
     else if (result == "ntscf")
-        framerate = 60;
+        framerate = 60.0;
     else if (result.substitute("fps", "") != MS::kFailure)
-        framerate = result.asInt();
+        framerate = result.asDouble();
+    else
+        framerate = 24.0;
 
     return framerate;
 }

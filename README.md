@@ -9,10 +9,11 @@ Dependencies
 ------------
 Plugin includes the latest version of the following packages:
 
-* [Maya API](https://www.autodesk.com/maya)
 * [OpenTissue](http://www.opentissue.org)
+* [Maya API](https://www.autodesk.com/maya)
 * [Bullet](http://bulletphysics.org)
 * [Netgen](https://ngsolve.org)
+* [Threading Building Blocks](https://www.threadingbuildingblocks.org)
 
 Copyright and License
 ---------------------

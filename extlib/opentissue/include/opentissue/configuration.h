@@ -5,8 +5,8 @@
 //
 // OTTL is licensed under zlib: http://opensource.org/licenses/zlib-license.php.
 
-#ifndef OPENTISSUE_CONFIGURATIOM_H
-#define OPENTISSUE_CONFIGURATIOM_H
+#ifndef OPENTISSUE_CONFIGURATION_H
+#define OPENTISSUE_CONFIGURATION_H
 
 #if (_MSC_VER >= 1200)
 #pragma once
@@ -17,7 +17,7 @@
 #ifdef WIN32
 #define _USE_MATH_DEFINES
 #define NOMINMAX
-#include <windows.h>
+#include <Windows.h>
 #endif
 
 #define OPENTISSUE_VERSION 0.994

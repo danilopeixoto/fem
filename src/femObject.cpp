@@ -39,12 +39,11 @@
 #include <maya/MFnMesh.h>
 #include <maya/MIntArray.h>
 #include <maya/MPointArray.h>
-#include <maya/MItMeshVertex.h>
-#include <maya/MFnDependencyNode.h>
-#include <maya/MString.h>
-#include <maya/MGlobal.h>
+
+#define FEM_COMPARE_ATTR(attr) plug.attribute() == attr
 
 MObject FEMObject::enableObject;
+MObject FEMObject::passiveObject;
 MObject FEMObject::densityObject;
 MObject FEMObject::poissonsRatioObject;
 MObject FEMObject::youngsModulusObject;
@@ -54,7 +53,6 @@ MObject FEMObject::minimumYieldStrengthObject;
 MObject FEMObject::maximumYieldStrengthObject;
 MObject FEMObject::creepRateObject;
 MObject FEMObject::frictionObject;
-MObject FEMObject::passiveObject;
 MObject FEMObject::initialVelocityXObject;
 MObject FEMObject::initialVelocityYObject;
 MObject FEMObject::initialVelocityZObject;
@@ -92,6 +90,10 @@ MStatus FEMObject::initialize() {
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
+    passiveObject = numericAttribute.create("passive", "p", MFnNumericData::kBoolean, false);
+    numericAttribute.setStorable(true);
+    numericAttribute.setKeyable(true);
+
     densityObject = numericAttribute.create("density", "d", MFnNumericData::kDouble, 1000.0);
     numericAttribute.setMin(1.0e-3);
     numericAttribute.setSoftMax(2000.0);
@@ -99,27 +101,27 @@ MStatus FEMObject::initialize() {
     numericAttribute.setKeyable(true);
 
     poissonsRatioObject = numericAttribute.create("poissonsRatio", "pr", MFnNumericData::kDouble, 0);
-    numericAttribute.setSoftMin(-10.0);
-    numericAttribute.setSoftMax(10);
+    numericAttribute.setMin(-0.499);
+    numericAttribute.setMax(0.499);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
     youngsModulusObject = numericAttribute.create("youngsModulus", "ym", MFnNumericData::kDouble, 1.0e5);
     numericAttribute.setMin(0);
-    numericAttribute.setSoftMax(1.0e6);
+    numericAttribute.setSoftMax(1.0e5);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
-    massDampingObject = numericAttribute.create("massDamping", "md", MFnNumericData::kDouble, 0.5);
+    massDampingObject = numericAttribute.create("massDamping", "md", MFnNumericData::kDouble, 2.0);
     numericAttribute.setMin(0);
-    numericAttribute.setSoftMax(1.0);
+    numericAttribute.setSoftMax(10.0);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
     stiffnessDampingObject = numericAttribute.create("stiffnessDamping", "sd",
-        MFnNumericData::kDouble, 0.1);
+        MFnNumericData::kDouble, 0);
     numericAttribute.setMin(0);
-    numericAttribute.setSoftMax(1.0);
+    numericAttribute.setSoftMax(10.0);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -146,10 +148,6 @@ MStatus FEMObject::initialize() {
     frictionObject = numericAttribute.create("friction", "f", MFnNumericData::kDouble, 0.5);
     numericAttribute.setMin(0);
     numericAttribute.setMax(1.0);
-    numericAttribute.setStorable(true);
-    numericAttribute.setKeyable(true);
-
-    passiveObject = numericAttribute.create("passive", "p", MFnNumericData::kBoolean, false);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -222,6 +220,7 @@ MStatus FEMObject::initialize() {
     typedAttribute.setStorable(false);
 
     addAttribute(enableObject);
+    addAttribute(passiveObject);
     addAttribute(densityObject);
     addAttribute(poissonsRatioObject);
     addAttribute(youngsModulusObject);
@@ -231,7 +230,6 @@ MStatus FEMObject::initialize() {
     addAttribute(maximumYieldStrengthObject);
     addAttribute(creepRateObject);
     addAttribute(frictionObject);
-    addAttribute(passiveObject);
     addAttribute(initialVelocityObject);
     addAttribute(initialAngularVelocityObject);
     addAttribute(startTimeObject);
@@ -244,29 +242,60 @@ MStatus FEMObject::initialize() {
     addAttribute(nextStateObject);
     addAttribute(currentStateObject);
 
+    attributeAffects(enableObject, outputMeshObject);
     attributeAffects(enableObject, currentStateObject);
-    attributeAffects(densityObject, currentStateObject);
-    attributeAffects(poissonsRatioObject, currentStateObject);
-    attributeAffects(youngsModulusObject, currentStateObject);
-    attributeAffects(massDampingObject, currentStateObject);
-    attributeAffects(stiffnessDampingObject, currentStateObject);
-    attributeAffects(minimumYieldStrengthObject, currentStateObject);
-    attributeAffects(maximumYieldStrengthObject, currentStateObject);
-    attributeAffects(creepRateObject, currentStateObject);
-    attributeAffects(frictionObject, currentStateObject);
+    attributeAffects(passiveObject, outputMeshObject);
     attributeAffects(passiveObject, currentStateObject);
+    attributeAffects(densityObject, outputMeshObject);
+    attributeAffects(densityObject, currentStateObject);
+    attributeAffects(poissonsRatioObject, outputMeshObject);
+    attributeAffects(poissonsRatioObject, currentStateObject);
+    attributeAffects(youngsModulusObject, outputMeshObject);
+    attributeAffects(youngsModulusObject, currentStateObject);
+    attributeAffects(massDampingObject, outputMeshObject);
+    attributeAffects(massDampingObject, currentStateObject);
+    attributeAffects(stiffnessDampingObject, outputMeshObject);
+    attributeAffects(stiffnessDampingObject, currentStateObject);
+    attributeAffects(minimumYieldStrengthObject, outputMeshObject);
+    attributeAffects(minimumYieldStrengthObject, currentStateObject);
+    attributeAffects(maximumYieldStrengthObject, outputMeshObject);
+    attributeAffects(maximumYieldStrengthObject, currentStateObject);
+    attributeAffects(creepRateObject, outputMeshObject);
+    attributeAffects(creepRateObject, currentStateObject);
+    attributeAffects(frictionObject, outputMeshObject);
+    attributeAffects(frictionObject, currentStateObject);
+    attributeAffects(initialVelocityObject, outputMeshObject);
     attributeAffects(initialVelocityObject, currentStateObject);
+    attributeAffects(initialAngularVelocityObject, outputMeshObject);
     attributeAffects(initialAngularVelocityObject, currentStateObject);
     attributeAffects(startTimeObject, outputMeshObject);
     attributeAffects(startTimeObject, currentStateObject);
     attributeAffects(currentTimeObject, outputMeshObject);
     attributeAffects(currentTimeObject, currentStateObject);
+    attributeAffects(inputMeshObject, outputMeshObject);
     attributeAffects(inputMeshObject, currentStateObject);
+    attributeAffects(surfaceNodesObject, outputMeshObject);
     attributeAffects(surfaceNodesObject, currentStateObject);
+    attributeAffects(volumeNodesObject, outputMeshObject);
     attributeAffects(volumeNodesObject, currentStateObject);
+    attributeAffects(matrixObject, outputMeshObject);
     attributeAffects(matrixObject, currentStateObject);
     attributeAffects(nextStateObject, outputMeshObject);
     attributeAffects(nextStateObject, currentStateObject);
+
+    return MS::kSuccess;
+}
+MStatus	FEMObject::setDependentsDirty(const MPlug & plug, MPlugArray & plugArray) {
+    if (FEM_COMPARE_ATTR(enableObject) || FEM_COMPARE_ATTR(passiveObject)
+        || FEM_COMPARE_ATTR(densityObject) || FEM_COMPARE_ATTR(poissonsRatioObject)
+        || FEM_COMPARE_ATTR(youngsModulusObject) || FEM_COMPARE_ATTR(massDampingObject)
+        || FEM_COMPARE_ATTR(stiffnessDampingObject) || FEM_COMPARE_ATTR(minimumYieldStrengthObject)
+        || FEM_COMPARE_ATTR(maximumYieldStrengthObject) || FEM_COMPARE_ATTR(creepRateObject)
+        || FEM_COMPARE_ATTR(frictionObject) || FEM_COMPARE_ATTR(enableObject))
+        parameters.updateParameters = true;
+    else if (FEM_COMPARE_ATTR(inputMeshObject) || FEM_COMPARE_ATTR(surfaceNodesObject)
+        || FEM_COMPARE_ATTR(volumeNodesObject) || FEM_COMPARE_ATTR(matrixObject))
+        parameters.updateMesh = true;
 
     return MS::kSuccess;
 }
@@ -276,99 +305,152 @@ MStatus FEMObject::compute(const MPlug & plug, MDataBlock & data) {
     if (plug != outputMeshObject && plug != currentStateObject)
         return MS::kUnknownParameter;
 
-    MFnPluginData pluginData;
-    pluginData.create(FEMObjectData::id);
-
-    FEMObjectData * objectData = (FEMObjectData *)pluginData.data();
-
-    MDataHandle currentStateHandle = data.outputValue(currentStateObject, &status);
+    MDataHandle startTimeHandle = data.inputValue(startTimeObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    currentStateHandle.set(objectData);
-
-    MFnMeshData meshData;
-    MObject outputMesh = meshData.create();
-
-    MDataHandle outputMeshHandle = data.outputValue(outputMeshObject, &status);
+    MDataHandle currentTimeHandle = data.inputValue(currentTimeObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    outputMeshHandle.set(outputMesh);
+    int startTime = startTimeHandle.asInt();
+    int currentTime = currentTimeHandle.asInt();
 
-    int startTime = data.inputValue(startTimeObject).asInt();
-    int currentTime = data.inputValue(currentTimeObject).asInt();
+    if (currentTime < startTime)
+        return MS::kSuccess;
 
-    FEMParameters parameters;
+    MDataHandle enableHandle = data.inputValue(enableObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    parameters.enable = data.inputValue(enableObject).asBool();
-    parameters.density = data.inputValue(densityObject).asDouble();
-    parameters.poissonsRatio = data.inputValue(poissonsRatioObject).asDouble();
-    parameters.youngsModulus = data.inputValue(youngsModulusObject).asDouble();
-    parameters.massDamping = data.inputValue(massDampingObject).asDouble();
-    parameters.stiffnessDamping = data.inputValue(stiffnessDampingObject).asDouble();
-    parameters.minimumYieldStrength = data.inputValue(minimumYieldStrengthObject).asDouble();
-    parameters.maximumYieldStrength = data.inputValue(maximumYieldStrengthObject).asDouble();
-    parameters.creepRate = data.inputValue(creepRateObject).asDouble();
-    parameters.friction = data.inputValue(frictionObject).asDouble();
-    parameters.passive = data.inputValue(passiveObject).asBool();
-    parameters.initialVelocity = data.inputValue(initialVelocityObject).asVector();
-    parameters.initialAngularVelocity = data.inputValue(initialAngularVelocityObject).asVector();
+    MDataHandle passiveHandle = data.inputValue(passiveObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle densityHandle = data.inputValue(densityObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle poissonsRatioHandle = data.inputValue(poissonsRatioObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle youngsModulusHandle = data.inputValue(youngsModulusObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle massDampingHandle = data.inputValue(massDampingObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle stiffnessDampingHandle = data.inputValue(stiffnessDampingObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle minimumYieldStrengthHandle = data.inputValue(minimumYieldStrengthObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle maximumYieldStrengthHandle = data.inputValue(maximumYieldStrengthObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle creepRateHandle = data.inputValue(creepRateObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle frictionHandle = data.inputValue(frictionObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle inputMeshHandle = data.inputValue(inputMeshObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MDataHandle surfaceNodesHandle = data.inputValue(surfaceNodesObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    parameters.surfaceNodesObject = surfaceNodesHandle.data();
-
     MDataHandle volumeNodesHandle = data.inputValue(volumeNodesObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
+    MDataHandle matrixHandle = data.inputValue(matrixObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle outputMeshHandle = data.outputValue(outputMeshObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle currentStateHandle = data.outputValue(currentStateObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    parameters.meshObject = inputMeshHandle.asMesh();
+
+    if (parameters.meshObject.isNull())
+        return MS::kFailure;
+
+    parameters.enable = enableHandle.asBool();
+    parameters.passive = passiveHandle.asBool();
+    parameters.density = densityHandle.asDouble();
+    parameters.poissonsRatio = poissonsRatioHandle.asDouble();
+    parameters.youngsModulus = youngsModulusHandle.asDouble();
+    parameters.massDamping = massDampingHandle.asDouble();
+    parameters.stiffnessDamping = stiffnessDampingHandle.asDouble();
+    parameters.minimumYieldStrength = minimumYieldStrengthHandle.asDouble();
+    parameters.maximumYieldStrength = maximumYieldStrengthHandle.asDouble();
+    parameters.creepRate = creepRateHandle.asDouble();
+    parameters.friction = frictionHandle.asDouble();
+    parameters.surfaceNodesObject = surfaceNodesHandle.data();
     parameters.volumeNodesObject = volumeNodesHandle.data();
+    parameters.matrixObject = matrixHandle.data();
 
-    if (parameters.passive || currentTime == startTime) {
-        MDataHandle inputMeshHandle = data.inputValue(inputMeshObject, &status);
-        CHECK_MSTATUS_AND_RETURN_IT(status);
+    MObject outputMesh = outputMeshHandle.asMesh();
+    FEMObjectData * currentStateData = (FEMObjectData *)currentStateHandle.asPluginData();
 
-        MDataHandle matrixHandle = data.inputValue(matrixObject, &status);
-        CHECK_MSTATUS_AND_RETURN_IT(status);
+    if (outputMesh.isNull()) {
+        MFnMeshData meshData;
+        outputMesh = meshData.create();
 
-        MObject meshObject = inputMeshHandle.asMesh();
-
-        if (meshObject.isNull())
-            return MS::kFailure;
-
-        transformMesh(meshObject, matrixHandle.asMatrix());
-
-        parameters.meshObject = meshObject;
-        objectData->initialize(parameters);
+        outputMeshHandle.set(outputMesh);
     }
-    else if (currentTime > startTime) {
+
+    if (currentStateData == nullptr) {
+        MFnPluginData pluginData;
+        pluginData.create(FEMObjectData::id);
+
+        currentStateData = (FEMObjectData *)pluginData.data();
+
+        currentStateHandle.set(currentStateData);
+    }
+
+    if (currentTime == startTime) {
+        MDataHandle initialVelocityHandle = data.inputValue(initialVelocityObject, &status);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
+
+        MDataHandle initialAngularVelocityHandle = data.inputValue(initialAngularVelocityObject, &status);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
+
+        parameters.initialVelocity = initialVelocityHandle.asVector();
+        parameters.initialAngularVelocity = initialAngularVelocityHandle.asVector();
+
+        currentStateData->initialize(parameters);
+    }
+    else {
         MDataHandle nextStateHandle = data.inputValue(nextStateObject, &status);
         CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        objectData->update(parameters, *nextStateHandle.asPluginData());
+        const FEMObjectData * nextStateData = (const FEMObjectData *)nextStateHandle.asPluginData();
+
+        if (nextStateData == nullptr)
+            return MS::kFailure;
+
+        currentStateData->update(parameters, *nextStateData);
     }
 
-    createOutputMesh(objectData, outputMesh);
+    updateOutputMesh(currentStateData, outputMesh);
 
     data.setClean(plug);
 
     return MS::kSuccess;
 }
 
-void FEMObject::createOutputMesh(const FEMObjectData * objectData,
+void FEMObject::updateOutputMesh(const FEMObjectData * objectData,
     MObject & meshObject) const {
     const MIntArray * surfaceNodes = objectData->getSurfaceNodes();
-    const TetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
+    const FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
 
     int pointCount = (int)tetrahedralMesh->size_nodes();
-    unsigned int surfaceCount = surfaceNodes->length() / 3;
+    int surfaceCount = surfaceNodes->length() / 3;
 
     MPointArray points;
     points.setLength(pointCount);
 
-#pragma omp parallel for
-
     for (int i = 0; i < pointCount; i++) {
-        const Vector & p = (tetrahedralMesh->node_begin() + i)->m_coord;
+        const FEMVector & p = tetrahedralMesh->const_node(i)->m_world_coord;
 
         points[i].x = p[0];
         points[i].y = p[1];
@@ -379,16 +461,4 @@ void FEMObject::createOutputMesh(const FEMObjectData * objectData,
 
     mesh.create(pointCount, surfaceCount, points,
         MIntArray(surfaceCount, 3), *surfaceNodes, meshObject);
-}
-void FEMObject::transformMesh(MObject & meshObject, const MMatrix & matrix) const {
-    MFnMesh mesh(meshObject);
-
-#pragma omp parallel for
-
-    for (int i = 0; i < mesh.numVertices(); i++) {
-        MPoint point;
-        mesh.getPoint(i, point);
-
-        mesh.setPoint(i, point * matrix);
-    }
 }

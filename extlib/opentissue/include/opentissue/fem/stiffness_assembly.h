@@ -10,43 +10,47 @@
 
 #include <opentissue/configuration.h>
 
+#include <opentissue/math/math.h>
+
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename tetrahedron_iterator>
-            inline void stiffness_assembly(tetrahedron_iterator const &begin,
-                tetrahedron_iterator const &end) {
-                typedef typename tetrahedron_iterator::value_type::real_type real_type;
-                typedef typename tetrahedron_iterator::value_type::vector_type vector_type;
-                typedef typename tetrahedron_iterator::value_type::matrix_type matrix_type;
-                typedef typename tetrahedron_iterator::value_type::node_iterator node_iterator;
+            template<typename fem_mesh>
+            inline void stiffness_assembly(fem_mesh &mesh) {
+                typedef typename fem_mesh::vector_type vector_type;
+                typedef typename fem_mesh::matrix_type matrix_type;
+                typedef typename fem_mesh::node_iterator node_iterator;
+                typedef typename fem_mesh::tetrahedron_iterator tetrahedron_iterator;
 
-                for (tetrahedron_iterator T = begin; T != end; ++T) {
-                    matrix_type &Re = T->m_Re;
+                tetrahedron_iterator tbegin = mesh.tetrahedron_begin();
+                tetrahedron_iterator tend = mesh.tetrahedron_end();
 
-                    for (int i = 0; i < 4; ++i) {
-                        node_iterator p_i = T->node(i);
+				for (tetrahedron_iterator t = tbegin; t != tend; t++) {
+                    matrix_type const &Re = t->m_Re;
 
-                        vector_type f;
-                        f.clear();
+                    for (unsigned int i = 0; i < 4; i++) {
+                        node_iterator n_i = t->node(i);
 
-                        for (int j = 0; j < 4; ++j) {
-                            node_iterator p_j = T->node(j);
-                            matrix_type &Ke_ij = T->m_Ke[i][j];
-                            vector_type &x0_j = p_j->m_model_coord;
+                        vector_type f0;
 
-                            f += Ke_ij * x0_j;
+                        for (unsigned int j = 0; j < 4; j++) {
+                            node_iterator n_j = t->node(j);
+                            vector_type const &x0_j = n_j->m_coord;
+                            matrix_type const &Ke_ij = t->m_Ke[i][j];
+
+                            f0 += Ke_ij * x0_j;
 
                             if (j >= i) {
-                                matrix_type tmp = Re * Ke_ij * trans(Re);
-                                p_i->K((int)p_j->idx()) += tmp;
+                                matrix_type J_ij = Re * Ke_ij * math::trans(Re);
+
+                                n_i->K((unsigned int)n_j->idx()) += J_ij;
 
                                 if (j > i)
-                                    p_j->K((int)p_i->idx()) += trans(tmp);
+                                    n_j->K((unsigned int)n_i->idx()) += math::trans(J_ij);
                             }
                         }
 
-                        p_i->m_f0 -= Re * f;
+                        n_i->m_f0 -= Re * f0;
                     }
                 }
             }

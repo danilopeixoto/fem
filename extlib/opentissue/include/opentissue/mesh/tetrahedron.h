@@ -10,12 +10,9 @@
 
 #include <opentissue/configuration.h>
 
-#include <array>
-#include <cassert>
-
 namespace opentissue {
     namespace mesh {
-        template <typename tetrahedral_mesh_type_>
+        template<typename tetrahedral_mesh_type_>
         class Tetrahedron : public tetrahedral_mesh_type_::tetrahedron_traits {
         public:
             typedef tetrahedral_mesh_type_ tetrahedral_mesh_type;
@@ -32,10 +29,10 @@ namespace opentissue {
         protected:
             index_type m_idx;
             tetrahedral_mesh_type *m_owner;
-            std::array<index_type, 4> m_nodes;
+            index_type m_nodes[4];
 
         private:
-            friend class core_access;
+            friend class CoreAccess;
 
             void set_index(index_type idx) { m_idx = idx; }
             void set_owner(tetrahedral_mesh_type *owner) { m_owner = owner; }
@@ -46,15 +43,16 @@ namespace opentissue {
 
         public:
             Tetrahedron() : m_idx(tetrahedral_mesh_type::undefined()), m_owner(0) {
-                m_nodes.assign(tetrahedral_mesh_type::undefined());
+                m_nodes[0] = tetrahedral_mesh_type::undefined();
+                m_nodes[1] = tetrahedral_mesh_type::undefined();
+                m_nodes[2] = tetrahedral_mesh_type::undefined();
+                m_nodes[3] = tetrahedral_mesh_type::undefined();
             }
 
         public:
             index_type idx() const { return m_idx; }
 
             index_type node_idx(index_type const &local_idx) const {
-                assert((local_idx >= 0 && local_idx < 4) || !"Node index out of range.");
-
                 return m_nodes[local_idx];
             }
 
@@ -72,7 +70,7 @@ namespace opentissue {
                 node_iterator b = k();
                 node_iterator c = m();
 
-                for (tetrahedron_circulator it = a->begin(); it != a->end(); ++it) {
+                for (tetrahedron_circulator it = a->begin(); it != a->end(); it++) {
                     if (it->has_face(c, b, a))
                         return m_owner->tetrahedron(it->idx());
                 }
@@ -85,7 +83,7 @@ namespace opentissue {
                 node_iterator b = j();
                 node_iterator c = m();
 
-                for (tetrahedron_circulator it = a->begin(); it != a->end(); ++it) {
+                for (tetrahedron_circulator it = a->begin(); it != a->end(); it++) {
                     if (it->has_face(c, b, a))
                         return m_owner->tetrahedron(it->idx());
                 }
@@ -98,7 +96,7 @@ namespace opentissue {
                 node_iterator b = i();
                 node_iterator c = m();
 
-                for (tetrahedron_circulator it = a->begin(); it != a->end(); ++it) {
+                for (tetrahedron_circulator it = a->begin(); it != a->end(); it++) {
                     if (it->has_face(c, b, a))
                         return m_owner->tetrahedron(it->idx());
                 }
@@ -111,7 +109,7 @@ namespace opentissue {
                 node_iterator b = k();
                 node_iterator c = j();
 
-                for (tetrahedron_circulator it = a->begin(); it != a->end(); ++it) {
+                for (tetrahedron_circulator it = a->begin(); it != a->end(); it++) {
                     if (it->has_face(c, b, a))
                         return m_owner->tetrahedron(it->idx());
                 }
@@ -123,29 +121,30 @@ namespace opentissue {
             tetrahedral_mesh_type const *owner() const { return m_owner; }
 
             node_iterator node(index_type local_idx) {
-                return m_owner->node(this->local2global(local_idx));
+                return m_owner->node(this->global_index(local_idx));
             }
 
             const_node_iterator node(index_type local_idx) const {
-                return m_owner->const_node(this->local2global(local_idx));
+                return m_owner->const_node(this->global_index(local_idx));
             }
 
-            index_type local2global(index_type local_idx) const {
-                assert((local_idx >= 0 && local_idx < 4) ||
-                    !"Node index out of range.");
-
+            index_type global_index(index_type local_idx) const {
                 return m_nodes[local_idx];
             }
 
-            index_type global2local(index_type global_idx) const {
+            index_type local_index(index_type global_idx) const {
                 if (global_idx == m_nodes[0])
                     return 0;
+
                 if (global_idx == m_nodes[1])
                     return 1;
+
                 if (global_idx == m_nodes[2])
                     return 2;
+
                 if (global_idx == m_nodes[3])
                     return 3;
+
                 return tetrahedral_mesh_type::undefined();
             }
 

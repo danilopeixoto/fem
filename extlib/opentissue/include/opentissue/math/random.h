@@ -17,7 +17,7 @@
 
 namespace opentissue {
     namespace math {
-        template <typename value_type> class Random {
+        template<typename value_type> class Random {
         protected:
             typedef value_type T;
             typedef Random<T> self;
@@ -25,14 +25,14 @@ namespace opentissue {
             T m_lower;
             T m_upper;
 
-        protected:
             static bool &is_initialized() {
                 static bool initialized = false;
+
                 return initialized;
             }
 
         public:
-            Random() : m_lower(math::detail::zero<T>()), m_upper(math::detail::one<T>()) {
+            Random() : m_lower(detail::zero<T>()), m_upper(detail::one<T>()) {
                 using std::time;
 
                 if (!is_initialized()) {
@@ -44,17 +44,17 @@ namespace opentissue {
             Random(T lower, T upper) : m_lower(lower), m_upper(upper) { self(); }
 
         private:
-            Random(Random const &rnd) {}
-            Random &operator=(Random const &rnd) { return *this; }
+            Random(Random const &random) {}
+            Random &operator=(Random const &random) { return *this; }
 
         public:
             T operator()() const {
-                double rnd = rand() / (1.0 * RAND_MAX);
-                return static_cast<T>(m_lower + (m_upper - m_lower) * rnd);
+                double rd = rand() / (1.0 * RAND_MAX);
+                return static_cast<T>(m_lower + (m_upper - m_lower) * rd);
             }
 
-            bool operator==(Random const &rnd) const {
-                return (m_lower == rnd.m_lower && m_upper == rnd.m_upper);
+            bool operator==(Random const &random) const {
+                return (m_lower == random.m_lower && m_upper == random.m_upper);
             }
         };
     }

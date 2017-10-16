@@ -39,7 +39,8 @@
 
 class FEMMesh : public MPxNode {
 public:
-    static MObject maximumEdgeLengthObject;
+    static MObject maximumElementSizeObject;
+    static MObject gradingObject;
     static MObject inputMeshObject;
     static MObject outputMeshObject;
     static MObject surfaceNodesObject;
@@ -56,7 +57,7 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, double) const;
+    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, double, double) const;
     bool compareTriangle(const int *, const int *) const;
 };
 

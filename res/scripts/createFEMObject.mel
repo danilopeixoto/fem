@@ -25,56 +25,48 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-global proc string[] createFEMObjectNetwork(int $passive) {
-    string $objectList[] = `ls -selection -dagObjects -type "mesh"`;
+global proc string[] addFEMObject(int $passive) {
+    string $inputMeshList[] = `ls -selection -dagObjects -type "mesh"`;
 
-    if (size($objectList) == 0) {
+    if (`size $inputMeshList` == 0) {
         error "Select a polygon object to create a finite element object.";
 
         return {};
     }
     
-    string $femMesh;
-    string $femObject;
-    string $femSolver;
-    string $transform;
-    string $outputMesh;
     string $time = "time1";
-
+    string $femSolver;
+    
     string $selectionList[];
     string $nodeList[];
-    string $parentList[];
-    string $currentConnections[];
-
     string $solverList[] = `ls -type "femSolver"`;
 
-    int $index;
-    
-    if (size($solverList) == 0) {
+    if (`size $solverList` == 0) {
         $femSolver = `createNode "femSolver"`;
-
         $nodeList[0] = $femSolver;
-        
-        connectAttr -force ($time + ".outTime") ($femSolver + ".currentTime");
     }
     else
         $femSolver = $solverList[0];
         
-    for ($inputMesh in $objectList) {
-        $currentConnections = `listConnections -type "femObject" $inputMesh`;
+    for ($inputMesh in $inputMeshList) {
+        string $femObject;
+        
+        string $currentConnections[] = `listConnections -type "femObject" ($inputMesh + ".worldMatrix")`;
 
-        if (size($currentConnections) == 0) {
-            $femMesh = `createNode "femMesh"`;
+        if (`size $currentConnections` == 0) {
+            string $femMesh = `createNode "femMesh"`;
             $femObject = `createNode "femObject"`;
-            $transform = `createNode -name "outputFEM#" "transform"`;
-            $outputMesh = `createNode -name "outputFEMMesh#" -parent $transform "mesh"`;
+            string $transform = `createNode -name "outputFEM#" "transform"`;
+            string $outputMesh = `createNode -name "outputFEMMesh#" -parent $transform "mesh"`;
+
+            sets -edit -forceElement "initialShadingGroup";
 
             appendStringArray($selectionList, {$outputMesh}, 1);
             appendStringArray($nodeList, {$femMesh, $femObject, $transform, $outputMesh}, 4);
 
             setAttr ($femObject + ".passive") $passive;
 
-            $parentList = `listRelatives -parent -type "transform" $inputMesh`;
+            string $parentList[] = `listRelatives -parent -type "transform" $inputMesh`;
 
             setAttr ($inputMesh + ".intermediateObject") true;
             setAttr ($parentList[0] + ".hiddenInOutliner") true;
@@ -87,9 +79,9 @@ global proc string[] createFEMObjectNetwork(int $passive) {
             connectAttr -force ($femMesh + ".outputMesh") ($femObject + ".inputMesh");
             connectAttr -force ($femMesh + ".surfaceNodes") ($femObject + ".surfaceNodes");
             connectAttr -force ($femMesh + ".volumeNodes") ($femObject + ".volumeNodes");
-
-            $index = getNextFreeMultiIndex($femSolver + ".currentState", 0);
-
+            
+            int $index = `getNextFreeMultiIndex ($femSolver + ".currentState") 0`;
+            
             connectAttr -force ($femObject + ".outputMesh") ($outputMesh + ".inMesh");
             connectAttr -force ($femObject + ".currentState") ($femSolver + ".currentState[" + $index + "]");
 
@@ -113,5 +105,5 @@ global proc string[] createFEMObjectNetwork(int $passive) {
 }
 
 global proc createFEMObject(int $passive) {
-    evalEcho ("createFEMObjectNetwork " + $passive);
+    evalEcho ("addFEMObject " + $passive);
 }

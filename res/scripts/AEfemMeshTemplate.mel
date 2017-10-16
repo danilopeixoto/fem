@@ -30,7 +30,8 @@ global proc AEfemMeshTemplate(string $nodeName) {
 
     editorTemplate -beginLayout "Tetrahedral Mesh Attributes" -collapse false;
 
-    editorTemplate -addControl "maximumEdgeLength";
+    editorTemplate -addControl "maximumElementSize";
+    editorTemplate -addControl "grading";
 
     editorTemplate -endLayout;
 

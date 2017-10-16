@@ -21,6 +21,7 @@
     <None Include="res\scripts\AEfemObjectTemplate.mel" />
     <None Include="res\scripts\AEfemSolverTemplate.mel" />
     <None Include="res\scripts\createFEMObject.mel" />
+    <None Include="res\scripts\deleteFEMSystem.mel" />
     <None Include="res\scripts\femCreateUI.mel" />
     <None Include="res\scripts\menu_FEM.mel" />
     <None Include="res\scripts\shelf_FEM.mel" />
@@ -104,20 +105,22 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;_DEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;$(MAYA_PATH)\include\;extlib\opentissue\include\;$(NGLIB_PATH)\include\</AdditionalIncludeDirectories>
-      <OpenMPSupport>true</OpenMPSupport>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(TBB_PATH)\include\</AdditionalIncludeDirectories>
+      <OpenMPSupport>
+      </OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(MAYA_PATH)\lib\;$(NGLIB_PATH)\lib\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;nglib.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(TBB_PATH)\lib\intel64\vc14\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;tbb_debug.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
+xcopy /s /i /y "$(ProjectDir)\extlib\nglib\build\nglib\bin\*" "$(ProjectDir)\build\$(Configuration)\$(TargetName)\bin"
 for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -129,22 +132,24 @@ for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del 
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;NDEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;$(MAYA_PATH)\include\;extlib\opentissue\include\;$(NGLIB_PATH)\include\</AdditionalIncludeDirectories>
-      <OpenMPSupport>true</OpenMPSupport>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(TBB_PATH)\include\</AdditionalIncludeDirectories>
+      <OpenMPSupport>
+      </OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(MAYA_PATH)\lib\;$(NGLIB_PATH)\lib\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;nglib.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(TBB_PATH)\lib\intel64\vc14\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;tbb.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
+xcopy /s /i /y "$(ProjectDir)\extlib\nglib\build\nglib\bin\*" "$(ProjectDir)\build\$(Configuration)\$(TargetName)\bin"
 for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

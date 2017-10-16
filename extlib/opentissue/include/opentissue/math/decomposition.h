@@ -5,8 +5,8 @@
 //
 // OTTL is licensed under zlib: http://opensource.org/licenses/zlib-license.php.
 
-#ifndef OPENTISSUE_MATH_MATRIX_DECOMPOSITION_H
-#define OPENTISSUE_MATH_MATRIX_DECOMPOSITION_H
+#ifndef OPENTISSUE_MATH_DECOMPOSITION_H
+#define OPENTISSUE_MATH_DECOMPOSITION_H
 
 #include <opentissue/configuration.h>
 
@@ -14,8 +14,8 @@
 
 namespace opentissue {
     namespace math {
-        template <typename matrix_type, typename vector_type>
-        inline void eigen(matrix_type const &A, matrix_type &V,
+        template<typename matrix_type, typename vector_type>
+        inline void eigen_decomposition(matrix_type const &A, matrix_type &V,
             vector_type &diag) {
             typedef typename vector_type::value_type real_type;
             typedef typename vector_type::value_traits value_traits;
@@ -43,14 +43,17 @@ namespace opentissue {
             if (fM02 != value_traits::zero()) {
                 real_type fLength = sqrt(fM01 * fM01 + fM02 * fM02);
                 real_type fInvLength = (value_traits::one()) / fLength;
+
                 fM01 *= fInvLength;
                 fM02 *= fInvLength;
 
                 real_type fQ = (value_traits::two()) * fM01 * fM12 + fM02 * (fM22 - fM11);
+
                 diag(1) = fM11 + fM02 * fQ;
                 diag(2) = fM22 - fM02 * fQ;
                 sub_diag(0) = fLength;
                 sub_diag(1) = fM12 - fM01 * fQ;
+
                 V(0, 0) = value_traits::one();
                 V(0, 1) = value_traits::zero();
                 V(0, 2) = value_traits::zero();
@@ -66,6 +69,7 @@ namespace opentissue {
                 diag(2) = fM22;
                 sub_diag(0) = fM01;
                 sub_diag(1) = fM12;
+
                 V(0, 0) = value_traits::one();
                 V(0, 1) = value_traits::zero();
                 V(0, 2) = value_traits::zero();
@@ -77,16 +81,16 @@ namespace opentissue {
                 V(2, 2) = value_traits::one();
             }
 
-            const int max_iterations = 32;
-            const int dim = 3;
+            const unsigned int max_iterations = 32;
+            const unsigned int dim = 3;
 
-            for (int i0 = 0; i0 < dim; ++i0) {
-                int i1;
+            for (unsigned int i0 = 0; i0 < dim; i0++) {
+                unsigned int i1;
 
-                for (i1 = 0; i1 < max_iterations; ++i1) {
-                    int i2;
+                for (i1 = 0; i1 < max_iterations; i1++) {
+                    unsigned int i2;
 
-                    for (i2 = i0; i2 <= dim - 2; ++i2) {
+                    for (i2 = i0; i2 <= dim - 2; i2++) {
                         real_type fTmp = fabs(diag(i2)) + fabs(diag(i2 + 1));
 
                         if (fabs(sub_diag(i2)) + fTmp == fTmp)
@@ -109,7 +113,7 @@ namespace opentissue {
                     real_type fCos = value_traits::one();
                     real_type fP = value_traits::zero();
 
-                    for (int i3 = i2 - 1; i3 >= i0; --i3) {
+                    for (unsigned int i3 = i2 - 1; i3 > i0; i3--) {
                         real_type fF = fSin * sub_diag(i3);
                         real_type fB = fCos * sub_diag(i3);
 
@@ -134,7 +138,7 @@ namespace opentissue {
                         diag(i3 + 1) = fG + fP;
                         fG = fCos * fR - fB;
 
-                        for (int i4 = 0; i4 < dim; ++i4) {
+                        for (unsigned int i4 = 0; i4 < dim; i4++) {
                             fF = V(i4, i3 + 1);
                             V(i4, i3 + 1) = fSin * V(i4, i3) + fCos * fF;
                             V(i4, i3) = fCos * V(i4, i3) - fSin * fF;
@@ -151,7 +155,7 @@ namespace opentissue {
             }
         }
 
-        template <typename matrix_type, typename real_type>
+        template<typename matrix_type, typename real_type>
         inline void polar_decomposition(matrix_type const &A, unsigned int max_iterations,
             real_type const &tolerance, matrix_type &U, matrix_type &P) {
             typedef typename matrix_type::value_traits value_traits;
@@ -159,87 +163,55 @@ namespace opentissue {
             using std::pow;
 
             U = A;
-            P = math::inverse(A);
+            P = inverse(A);
 
-            for (unsigned int i = 0; i < max_iterations; ++i) {
-                real_type u_one_norm = math::norm_1(U);
+            for (unsigned int i = 0; i < max_iterations; i++) {
+                real_type u_one_norm = norm_1(U);
 
-                real_type u_norm = math::norm_inf(U) * u_one_norm;
-                real_type p_norm = math::norm_inf(P) * math::norm_1(P);
+                real_type u_norm = norm_inf(U) * u_one_norm;
+                real_type p_norm = norm_inf(P) * norm_1(P);
 
                 if (u_norm == value_traits::zero() || p_norm == value_traits::zero())
                     break;
 
                 real_type gamma = pow(p_norm / u_norm, 0.25);
                 matrix_type D = value_traits::half() * (U * (gamma - value_traits::two()) +
-                    math::trans(P) / gamma);
+                    trans(P) / gamma);
 
                 U += D;
-                P = math::inverse(U);
+                P = inverse(U);
 
-                if (math::norm_1(D) <= tolerance * u_one_norm) {
-                    P = math::trans(U) * A;
-                    P = value_traits::half() * (P + math::trans(P));
-
-                    return;
-                }
+                if (norm_1(D) <= tolerance * u_one_norm)
+                    break;
             }
 
-            P = math::trans(U) * A;
-            P = value_traits::half() * (P + math::trans(P));
+            P = trans(U) * A;
+            P = value_traits::half() * (P + trans(P));
         }
 
-        template <typename matrix_type>
-        inline void qr_decomposition(matrix_type const &A, matrix_type &Q,
-            matrix_type &R) {
+        template<typename matrix_type>
+        inline void orthonormalize(matrix_type &A) {
             typedef typename matrix_type::value_type real_type;
             typedef typename matrix_type::value_traits value_traits;
             typedef typename matrix_type::vector_type vector_type;
 
-            Q(0, 0) = value_traits::one();
-            Q(0, 1) = value_traits::zero();
-            Q(0, 2) = value_traits::zero();
-            Q(1, 0) = value_traits::zero();
-            Q(1, 1) = value_traits::one();
-            Q(1, 2) = value_traits::zero();
-            Q(2, 0) = value_traits::zero();
-            Q(2, 1) = value_traits::zero();
-            Q(2, 2) = value_traits::one();
+            vector_type &r0 = A.row(0);
+            vector_type &r1 = A.row(1);
+            vector_type &r2 = A.row(2);
 
-            R = A;
+            real_type n0 = length(r0);
 
-            const int dim = 3;
+            if (n0 != value_traits::zero())
+                r0 /= n0;
 
-            for (unsigned int i = 0; i < dim; ++i) {
-                vector_type v;
+            r1 -= r0 * dot(r0, r1);
 
-                for (unsigned int j = i; j < dim; ++j)
-                    v(j) = R(j, i);
+            real_type n1 = length(r1);
 
-                v(i) += (v(i) < 0) ? math::length(v) : -math::length(v);
+            if (n1 != value_traits::zero())
+                r1 /= n1;
 
-                real_type m = math::length(v);
-
-                if (m == value_traits::zero())
-                    continue;
-
-                v /= m;
-
-                matrix_type H;
-
-                H(0, 0) = value_traits::one() - value_traits::two() * v(0) * v(0);
-                H(0, 1) = -value_traits::two() * v(0) * v(1);
-                H(0, 2) = -value_traits::two() * v(0) * v(2);
-                H(1, 0) = H(0, 1);
-                H(1, 1) = value_traits::one() - value_traits::two() * v(1) * v(1);
-                H(1, 2) = -value_traits::two() * v(1) * v(2);
-                H(2, 0) = H(0, 2);
-                H(2, 1) = H(1, 2);
-                H(2, 2) = value_traits::one() - value_traits::two() * v(2) * v(2);
-
-                R = H * R;
-                Q = Q * H;
-            }
+            r2 = cross(r0, r1);
         }
     }
 }

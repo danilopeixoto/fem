@@ -10,35 +10,32 @@
 
 #include <opentissue/configuration.h>
 
-#include <limits>
-
 namespace opentissue {
     namespace fem {
         namespace detail {
-            template <typename fem_mesh> inline void compute_mass(fem_mesh &mesh) {
+            template<typename fem_mesh>
+            inline void compute_mass(fem_mesh &mesh) {
+                typedef typename fem_mesh::real_type real_type;
+                typedef typename fem_mesh::value_traits value_traits;
                 typedef typename fem_mesh::node_iterator node_iterator;
                 typedef typename fem_mesh::tetrahedron_iterator tetrahedron_iterator;
-                typedef typename fem_mesh::real_type real_type;
 
-                node_iterator Nbegin = mesh.node_begin();
-                node_iterator Nend = mesh.node_end();
+                node_iterator nbegin = mesh.node_begin();
+                node_iterator nend = mesh.node_end();
 
-                for (node_iterator N = Nbegin; N != Nend; ++N) {
-                    if (N->m_fixed)
-                        N->m_mass = std::numeric_limits<real_type>::max();
-                    else
-                        N->m_mass = 0;
-                }
+                for (node_iterator n = nbegin; n != nend; n++)
+                    n->m_mass = n->m_fixed ? value_traits::infinity() : 0;
 
-                tetrahedron_iterator Tbegin = mesh.tetrahedron_begin();
-                tetrahedron_iterator Tend = mesh.tetrahedron_end();
+                tetrahedron_iterator tbegin = mesh.tetrahedron_begin();
+                tetrahedron_iterator tend = mesh.tetrahedron_end();
 
-                for (tetrahedron_iterator T = Tbegin; T != Tend; ++T) {
-                    real_type amount = T->m_density * T->m_V * 0.25;
-                    T->i()->m_mass += amount;
-                    T->j()->m_mass += amount;
-                    T->k()->m_mass += amount;
-                    T->m()->m_mass += amount;
+                for (tetrahedron_iterator t = tbegin; t != tend; t++) {
+                    real_type amount = t->m_density * t->m_volume * 0.25;
+
+                    t->i()->m_mass += amount;
+                    t->j()->m_mass += amount;
+                    t->k()->m_mass += amount;
+                    t->m()->m_mass += amount;
                 }
             }
         }

@@ -56,7 +56,6 @@ global proc AEfemSolverTemplate(string $nodeName) {
 
     editorTemplate -endLayout;
 
-    editorTemplate -suppress "currentTime";
     editorTemplate -suppress "currentState";
 
     AEdependNodeTemplate $nodeName;

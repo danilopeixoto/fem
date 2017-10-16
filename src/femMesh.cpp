@@ -36,11 +36,10 @@
 #include <maya/MFnMesh.h>
 #include <maya/MPointArray.h>
 
-namespace nglib {
 #include <nglib.h>
-}
 
-MObject FEMMesh::maximumEdgeLengthObject;
+MObject FEMMesh::maximumElementSizeObject;
+MObject FEMMesh::gradingObject;
 MObject FEMMesh::inputMeshObject;
 MObject FEMMesh::outputMeshObject;
 MObject FEMMesh::surfaceNodesObject;
@@ -59,10 +58,16 @@ MStatus FEMMesh::initialize() {
     MFnNumericAttribute numericAttribute;
     MFnTypedAttribute typedAttribute;
 
-    maximumEdgeLengthObject = numericAttribute.create("maximumEdgeLength", "mel",
+    maximumElementSizeObject = numericAttribute.create("maximumElementSize", "mel",
         MFnNumericData::kDouble, 1.0);
     numericAttribute.setMin(1.0e-3);
     numericAttribute.setSoftMax(1.0);
+    numericAttribute.setStorable(true);
+    numericAttribute.setKeyable(true);
+
+    gradingObject = numericAttribute.create("grading", "g", MFnNumericData::kDouble, 0.25);
+    numericAttribute.setMin(0);
+    numericAttribute.setMax(1.0);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -81,15 +86,19 @@ MStatus FEMMesh::initialize() {
     typedAttribute.setWritable(false);
     typedAttribute.setStorable(false);
 
-    addAttribute(maximumEdgeLengthObject);
+    addAttribute(maximumElementSizeObject);
+    addAttribute(gradingObject);
     addAttribute(inputMeshObject);
     addAttribute(outputMeshObject);
     addAttribute(surfaceNodesObject);
     addAttribute(volumeNodesObject);
 
-    attributeAffects(maximumEdgeLengthObject, outputMeshObject);
-    attributeAffects(maximumEdgeLengthObject, surfaceNodesObject);
-    attributeAffects(maximumEdgeLengthObject, volumeNodesObject);
+    attributeAffects(maximumElementSizeObject, outputMeshObject);
+    attributeAffects(maximumElementSizeObject, surfaceNodesObject);
+    attributeAffects(maximumElementSizeObject, volumeNodesObject);
+    attributeAffects(gradingObject, outputMeshObject);
+    attributeAffects(gradingObject, surfaceNodesObject);
+    attributeAffects(gradingObject, volumeNodesObject);
     attributeAffects(inputMeshObject, outputMeshObject);
     attributeAffects(inputMeshObject, surfaceNodesObject);
     attributeAffects(inputMeshObject, volumeNodesObject);
@@ -103,7 +112,10 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
         && plug != volumeNodesObject)
         return MS::kUnknownParameter;
 
-    MDataHandle maximumEdgeLengthHandle = data.inputValue(maximumEdgeLengthObject, &status);
+    MDataHandle maximumElementSizeHandle = data.inputValue(maximumElementSizeObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle gradingHandle = data.inputValue(gradingObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MDataHandle inputMeshHandle = data.inputValue(inputMeshObject, &status);
@@ -113,7 +125,8 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
     MDataHandle surfaceNodesHandle = data.outputValue(surfaceNodesObject);
     MDataHandle volumeNodesHandle = data.outputValue(volumeNodesObject);
 
-    double maximumEdgeLength = maximumEdgeLengthHandle.asDouble();
+    double maximumElementSize = maximumElementSizeHandle.asDouble();
+    double grading = gradingHandle.asDouble();
 
     outputMeshHandle.set(inputMeshHandle.asMesh());
     MObject meshObject = outputMeshHandle.asMesh();
@@ -123,7 +136,8 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
 
     MIntArray surfaceNodes, volumeNodes;
 
-    status = tetrahedralize(meshObject, surfaceNodes, volumeNodes, maximumEdgeLength);
+    status = tetrahedralize(meshObject, surfaceNodes, volumeNodes,
+        maximumElementSize, grading);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MFnIntArrayData intArrayData;
@@ -137,7 +151,9 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
 }
 
 MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
-    MIntArray & volumeNodes, double maximumEdgeLength) const {
+    MIntArray & volumeNodes, double maximumElementSize, double grading) const {
+    MStatus status;
+
     MFnMesh mesh(meshObject);
 
     MPointArray vertexArray;
@@ -146,14 +162,15 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
     MIntArray triangleCounts, triangleVertices;
     mesh.getTriangles(triangleCounts, triangleVertices);
 
-    nglib::Ng_Init();
+    nglib::Initialize();
 
-    nglib::Ng_STL_Geometry * surfaceMesh = nglib::Ng_STL_NewGeometry();
-    nglib::Ng_Mesh * volumeMesh = nglib::Ng_NewMesh();
+    nglib::STLGeometry * surfaceMesh = nglib::STLNewGeometry();
+    nglib::Mesh * volumeMesh = nglib::NewMesh();
 
-    nglib::Ng_Meshing_Parameters parameters;
-    parameters.maxh = maximumEdgeLength;
-    parameters.second_order = 0;
+    nglib::MeshingParameters parameters;
+    parameters.max_element_size = maximumElementSize;
+    parameters.grading = grading;
+    parameters.second_order = false;
 
     int triangleCount = triangleVertices.length() / 3;
 
@@ -166,111 +183,88 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
             vertexArray[triangleVertices[i * 3 + j]].get(point);
         }
 
-        nglib::Ng_STL_AddTriangle(surfaceMesh, &points[0], &points[4], &points[8]);
+        nglib::STLAddTriangle(surfaceMesh, &points[0], &points[4], &points[8]);
     }
 
     vertexArray.setLength(0);
     triangleVertices.setLength(0);
 
-    nglib::Ng_Result result = nglib::Ng_STL_InitSTLGeometry(surfaceMesh);
+    nglib::Status result = nglib::STLInitializeGeometry(surfaceMesh,
+        volumeMesh, &parameters);
 
-    if (result != nglib::Ng_Result::NG_OK)
+    if (result != nglib::Status::Success)
         return MS::kFailure;
 
-    result = nglib::Ng_STL_MakeEdges(surfaceMesh, volumeMesh, &parameters);
+    result = nglib::STLGenerateSurfaceMesh(surfaceMesh, volumeMesh, &parameters);
 
-    if (result != nglib::Ng_Result::NG_OK)
+    if (result != nglib::Status::Success)
         return MS::kFailure;
 
-    result = nglib::Ng_STL_GenerateSurfaceMesh(surfaceMesh, volumeMesh, &parameters);
+    result = nglib::GenerateVolumeMesh(volumeMesh, &parameters);
 
-    if (result != nglib::Ng_Result::NG_OK)
+    if (result != nglib::Status::Success)
         return MS::kFailure;
 
-    result = nglib::Ng_GenerateVolumeMesh(volumeMesh, &parameters);
-
-    if (result != nglib::Ng_Result::NG_OK)
-        return MS::kFailure;
-
-    int pointCount = nglib::Ng_GetNP(volumeMesh);
-    int surfaceCount = nglib::Ng_GetNSE(volumeMesh);
-    int volumeCount = nglib::Ng_GetNE(volumeMesh);
+    int pointCount = nglib::GetPointCount(volumeMesh);
+    int surfaceCount = nglib::GetSurfaceCount(volumeMesh);
+    int volumeCount = nglib::GetVolumeCount(volumeMesh);
 
     triangleCount = volumeCount * 4;
 
     vertexArray.setLength(pointCount);
     surfaceNodes.setLength(surfaceCount * 3);
-    volumeNodes.setLength(volumeCount * 4);
+    volumeNodes.setLength(triangleCount);
 
     triangleVertices.setLength(triangleCount * 3);
 
-#pragma omp parallel sections
-    {
-#pragma omp section
-        {
+    for (int i = 0; i < pointCount; i++) {
+        double point[3];
 
-#pragma omp parallel for
+        nglib::GetPoint(volumeMesh, i, point);
 
-            for (int i = 0; i < pointCount; i++) {
-                double point[3];
-
-                nglib::Ng_GetPoint(volumeMesh, i + 1, point);
-
-                vertexArray.set(i, point[0], point[1], point[2]);
-            }
-        }
-
-#pragma omp section
-        {
-
-#pragma omp parallel for
-
-            for (int i = 0; i < surfaceCount; i++) {
-                int triangle[3];
-
-                nglib::Ng_GetSurfaceElement(volumeMesh, i + 1, triangle);
-
-                for (int j = 0; j < 3; j++)
-                    surfaceNodes[i * 3 + j] = triangle[j] - 1;
-            }
-        }
-
-#pragma omp section
-        {
-
-#pragma omp parallel for
-
-            for (int i = 0; i < volumeCount; i++) {
-                int tetrahedron[4];
-
-                nglib::Ng_GetVolumeElement(volumeMesh, i + 1, tetrahedron);
-
-                for (int j = 0; j < 4; j++)
-                    volumeNodes[i * 4 + j] = --tetrahedron[j];
-
-                int s = i * 12;
-
-                triangleVertices[s] = tetrahedron[0];
-                triangleVertices[s + 1] = tetrahedron[1];
-                triangleVertices[s + 2] = tetrahedron[2];
-
-                triangleVertices[s + 3] = tetrahedron[1];
-                triangleVertices[s + 4] = tetrahedron[3];
-                triangleVertices[s + 5] = tetrahedron[2];
-
-                triangleVertices[s + 6] = tetrahedron[0];
-                triangleVertices[s + 7] = tetrahedron[2];
-                triangleVertices[s + 8] = tetrahedron[3];
-
-                triangleVertices[s + 9] = tetrahedron[0];
-                triangleVertices[s + 10] = tetrahedron[3];
-                triangleVertices[s + 11] = tetrahedron[1];
-            }
-        }
+        vertexArray.set(i, point[0], point[1], point[2]);
     }
 
-    nglib::Ng_DeleteMesh(volumeMesh);
-    nglib::Ng_Exit();
+    for (int i = 0; i < surfaceCount; i++) {
+        int triangle[3];
+
+        nglib::GetSurfaceElement(volumeMesh, i, triangle);
+
+        for (int j = 0; j < 3; j++)
+            surfaceNodes[i * 3 + j] = triangle[j];
+    }
+
+    for (int i = 0; i < volumeCount; i++) {
+        int tetrahedron[4];
+
+        nglib::GetVolumeElement(volumeMesh, i, tetrahedron);
+
+        volumeNodes[i * 4] = tetrahedron[0];
+        volumeNodes[i * 4 + 1] = tetrahedron[1];
+        volumeNodes[i * 4 + 2] = tetrahedron[3];
+        volumeNodes[i * 4 + 3] = tetrahedron[2];
+
+        int s = i * 12;
+
+        triangleVertices[s] = tetrahedron[0];
+        triangleVertices[s + 1] = tetrahedron[1];
+        triangleVertices[s + 2] = tetrahedron[2];
+
+        triangleVertices[s + 3] = tetrahedron[1];
+        triangleVertices[s + 4] = tetrahedron[3];
+        triangleVertices[s + 5] = tetrahedron[2];
+
+        triangleVertices[s + 6] = tetrahedron[0];
+        triangleVertices[s + 7] = tetrahedron[2];
+        triangleVertices[s + 8] = tetrahedron[3];
+
+        triangleVertices[s + 9] = tetrahedron[0];
+        triangleVertices[s + 10] = tetrahedron[3];
+        triangleVertices[s + 11] = tetrahedron[1];
+    }
+
+    nglib::DeleteMesh(volumeMesh);
+    nglib::STLDeleteGeometry(surfaceMesh);
 
     for (int i = 0; i < triangleCount; i++) {
         const int * ti = &triangleVertices[i * 3];

@@ -30,17 +30,17 @@
 
 #include <maya/MPxData.h>
 #include <maya/MTypeId.h>
-#include <maya/MVector.h>
 #include <maya/MString.h>
 #include <maya/MObject.h>
+#include <maya/MVector.h>
 #include <maya/MIntArray.h>
 
-#include <opentissue/math/basic_types.h>
+#include <opentissue/math/math.h>
 #include <opentissue/fem/fem.h>
 
-typedef opentissue::math::BasicMathTypes<double, unsigned int> MathTypes;
-typedef MathTypes::vector_type Vector;
-typedef opentissue::fem::Mesh<MathTypes> TetrahedralMesh;
+typedef opentissue::math::Types<double, unsigned int> FEMMathTypes;
+typedef FEMMathTypes::vector_type FEMVector;
+typedef opentissue::fem::Mesh<FEMMathTypes> FEMTetrahedralMesh;
 
 struct FEMParameters {
     bool enable;
@@ -62,6 +62,10 @@ struct FEMParameters {
     MObject meshObject;
     MObject surfaceNodesObject;
     MObject volumeNodesObject;
+    MObject matrixObject;
+
+    bool updateParameters;
+    bool updateMesh;
 
     FEMParameters();
     FEMParameters(const FEMParameters &);
@@ -75,7 +79,6 @@ public:
 
     FEMObjectData();
     FEMObjectData(const MPxData &);
-    FEMObjectData(const FEMParameters &);
     virtual ~FEMObjectData();
 
     virtual MTypeId typeId() const;
@@ -84,23 +87,25 @@ public:
     static void * creator();
     virtual	void copy(const MPxData &);
 
-    FEMObjectData & initialize(const FEMParameters &);
-    FEMObjectData & update(const FEMParameters &, const MPxData &);
+    FEMObjectData & reset();
 
-    TetrahedralMesh * getTetrahedralMesh();
-    const TetrahedralMesh * getTetrahedralMesh() const;
+    FEMObjectData & initialize(FEMParameters &);
+    FEMObjectData & update(FEMParameters &, const MPxData &);
+
+    FEMTetrahedralMesh * getTetrahedralMesh();
+    const FEMTetrahedralMesh * getTetrahedralMesh() const;
     MIntArray * getSurfaceNodes();
     const MIntArray * getSurfaceNodes() const;
 
-    bool isPassive() const;
     bool isEnable() const;
+    bool isPassive() const;
 
     double getMassDamping() const;
     double getStiffnessDamping() const;
     double getFriction() const;
 
 private:
-    TetrahedralMesh * tetrahedralMesh;
+    FEMTetrahedralMesh * tetrahedralMesh;
     MIntArray * surfaceNodes;
 
     bool enable;
@@ -109,6 +114,9 @@ private:
     double massDamping;
     double stiffnessDamping;
     double friction;
+
+    FEMObjectData & allocate();
+    FEMObjectData & deallocate();
 };
 
 #endif
