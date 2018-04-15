@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -25,11 +25,10 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "femObjectData.h"
+#include <femObjectData.h>
 
 #include <maya/MPoint.h>
 #include <maya/MFnIntArrayData.h>
-#include <maya/MFnMatrixData.h>
 #include <maya/MFnMesh.h>
 
 FEMParameters::FEMParameters() {
@@ -46,8 +45,8 @@ FEMParameters::FEMParameters() {
     creepRate = 0;
     friction = 0.5;
 
-    updateParameters = true;
-    updateMesh = true;
+    updateParameters = false;
+    updateMesh = false;
 }
 FEMParameters::FEMParameters(const FEMParameters & parameters) {
     if (this != &parameters) {
@@ -70,6 +69,7 @@ FEMParameters::FEMParameters(const FEMParameters & parameters) {
         meshObject = parameters.meshObject;
         surfaceNodesObject = parameters.surfaceNodesObject;
         volumeNodesObject = parameters.volumeNodesObject;
+        matrix = parameters.matrix;
 
         updateParameters = parameters.updateParameters;
         updateMesh = parameters.updateMesh;
@@ -106,14 +106,14 @@ MString FEMObjectData::name() const {
 }
 
 void * FEMObjectData::creator() {
-    return new FEMObjectData;
+    return new FEMObjectData();
 }
 void FEMObjectData::copy(const MPxData & source) {
     const FEMObjectData & objectData = (const FEMObjectData &)source;
 
     if (this != &objectData) {
         *tetrahedralMesh = *objectData.getTetrahedralMesh();
-        *surfaceNodes = *objectData.getSurfaceNodes();
+        surfaceNodes->copy(*objectData.getSurfaceNodes());
 
         enable = objectData.isEnable();
         passive = objectData.isPassive();
@@ -122,6 +122,31 @@ void FEMObjectData::copy(const MPxData & source) {
         stiffnessDamping = objectData.getStiffnessDamping();
         friction = objectData.getFriction();
     }
+}
+
+MStatus FEMObjectData::readASCII(const MArgList & argumentList, unsigned int & index) {
+    return MS::kSuccess;
+}
+MStatus FEMObjectData::readBinary(std::istream & istream, unsigned int length) {
+    return MS::kSuccess;
+}
+MStatus FEMObjectData::writeASCII(std::ostream & ostream) {
+    ostream << enable << ' ' << passive << ' ' << tetrahedralMesh->size_tetrahedra();
+
+    return ostream.fail() ? MS::kFailure : MS::kSuccess;
+}
+MStatus FEMObjectData::writeBinary(std::ostream & ostream) {
+    ostream.write((const char *)&enable, sizeof(bool));
+
+    if (!ostream.fail())
+        ostream.write((const char *)&passive, sizeof(bool));
+
+    if (!ostream.fail()) {
+        size_t elementCount = tetrahedralMesh->size_tetrahedra();
+        ostream.write((const char *)&elementCount, sizeof(size_t));
+    }
+
+    return ostream.fail() ? MS::kFailure : MS::kSuccess;
 }
 
 FEMObjectData & FEMObjectData::reset() {
@@ -147,13 +172,11 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
     friction = parameters.friction;
 
     MFnMesh mesh(parameters.meshObject);
-    MFnMatrixData matrixData(parameters.matrixObject);
-
     MPoint point;
 
     for (int i = 0; i < mesh.numVertices(); i++) {
         mesh.getPoint(i, point);
-        point *= matrixData.matrix();
+        point *= parameters.matrix;
 
         tetrahedralMesh->insert(FEMVector(point.x, point.y, point.z));
     }
@@ -161,7 +184,7 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
     MFnIntArrayData arrayData;
 
     arrayData.setObject(parameters.surfaceNodesObject);
-    *this->surfaceNodes = arrayData.array();
+    surfaceNodes->copy(arrayData.array());
 
     arrayData.setObject(parameters.volumeNodesObject);
 
@@ -187,28 +210,28 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
 
     return *this;
 }
-FEMObjectData & FEMObjectData::update(FEMParameters & parameters,
-    const MPxData & source) {
-    if (parameters.passive && parameters.updateMesh)
+FEMObjectData & FEMObjectData::update(FEMParameters & parameters, const MPxData & source) {
+    if (parameters.updateMesh)
         return initialize(parameters);
 
-    enable = parameters.enable;
-    passive = parameters.passive;
+    copy(source);
 
-    massDamping = parameters.massDamping;
-    stiffnessDamping = parameters.stiffnessDamping;
-    friction = parameters.friction;
+    if (parameters.updateParameters) {
+        enable = parameters.enable;
+        passive = parameters.passive;
 
-    const FEMObjectData & objectData = (const FEMObjectData &)source;
+        massDamping = parameters.massDamping;
+        stiffnessDamping = parameters.stiffnessDamping;
+        friction = parameters.friction;
 
-    *tetrahedralMesh = *objectData.getTetrahedralMesh();
-    *surfaceNodes = *objectData.getSurfaceNodes();
+        opentissue::fem::set_fixed(*tetrahedralMesh, passive);
 
-    if (!passive && parameters.updateParameters) {
-        opentissue::fem::update_parameters(*tetrahedralMesh, parameters.density,
-            parameters.poissonsRatio, parameters.youngsModulus,
-            parameters.minimumYieldStrength, parameters.maximumYieldStrength,
-            parameters.creepRate);
+        if (!passive) {
+            opentissue::fem::update_parameters(*tetrahedralMesh, parameters.density,
+                parameters.poissonsRatio, parameters.youngsModulus,
+                parameters.minimumYieldStrength, parameters.maximumYieldStrength,
+                parameters.creepRate);
+        }
     }
 
     return *this;

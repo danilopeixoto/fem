@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -25,7 +25,7 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "femMesh.h"
+#include <femMesh.h>
 
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -33,13 +33,88 @@
 #include <maya/MFnMeshData.h>
 #include <maya/MFnIntArrayData.h>
 #include <maya/MDataHandle.h>
+#include <maya/MPoint.h>
+#include <maya/MVector.h>
 #include <maya/MFnMesh.h>
-#include <maya/MPointArray.h>
+#include <maya/MItMeshVertex.h>
 
 #include <nglib.h>
 
-MObject FEMMesh::maximumElementSizeObject;
-MObject FEMMesh::gradingObject;
+#include <cmath>
+#include <functional>
+
+FEMTriangleHash::FEMTriangleHash() {}
+FEMTriangleHash::~FEMTriangleHash() {}
+
+size_t FEMTriangleHash::operator ()(const FEMTriangle & triangle) const {
+    size_t h0 = std::hash<FEMTriangle::ValueType>()(triangle[0]);
+    size_t h1 = std::hash<FEMTriangle::ValueType>()(triangle[1]);
+    size_t h2 = std::hash<FEMTriangle::ValueType>()(triangle[2]);
+
+    return (h0 ^ h1) ^ h2;
+}
+
+FEMTriangleEqual::FEMTriangleEqual() {}
+FEMTriangleEqual::~FEMTriangleEqual() {}
+
+bool FEMTriangleEqual::operator ()(const FEMTriangle & lhs, const FEMTriangle & rhs) const {
+    bool t0 = lhs[0] == rhs[0] || lhs[0] == rhs[1] || lhs[0] == rhs[2];
+    bool t1 = lhs[1] == rhs[0] || lhs[1] == rhs[1] || lhs[1] == rhs[2];
+    bool t2 = lhs[2] == rhs[0] || lhs[2] == rhs[1] || lhs[2] == rhs[2];
+
+    return t0 && t1 && t2;
+}
+
+const size_t FEMMeshDataAdapter::three = 3;
+
+FEMMeshDataAdapter::FEMMeshDataAdapter(MPointArray & points, MIntArray & triangles,
+    double voxelSize) {
+    numberPoints = points.length();
+    numberTriangles = triangles.length() / three;
+
+    this->points = &points;
+    this->triangles = &triangles;
+
+    transform = FEMTransform::createLinearTransform(voxelSize);
+
+    for (unsigned int i = 0; i < numberPoints; i++) {
+        MPoint & point = (*this->points)[i];
+        FEMPoint transformedPoint(point.x, point.y, point.z);
+
+        transformedPoint = transform->worldToIndex(transformedPoint);
+
+        point.x = transformedPoint.x();
+        point.y = transformedPoint.y();
+        point.z = transformedPoint.z();
+    }
+}
+
+size_t FEMMeshDataAdapter::pointCount() const {
+    return numberPoints;
+}
+size_t FEMMeshDataAdapter::polygonCount() const {
+    return numberTriangles;
+}
+size_t FEMMeshDataAdapter::vertexCount(size_t vertexIndex) const {
+    return three;
+}
+
+void FEMMeshDataAdapter::getIndexSpacePoint(size_t polygonIndex, size_t vertexIndex,
+    FEMPoint & position) const {
+    const MPoint & point = (*points)[(*triangles)[polygonIndex * three + vertexIndex]];
+
+    position[0] = point.x;
+    position[1] = point.y;
+    position[2] = point.z;
+}
+
+const FEMTransform & FEMMeshDataAdapter::getTransform() const {
+    return *transform;
+}
+
+MObject FEMMesh::volumeElementScaleObject;
+MObject FEMMesh::useVoxelSizeObject;
+MObject FEMMesh::voxelSizeObject;
 MObject FEMMesh::inputMeshObject;
 MObject FEMMesh::outputMeshObject;
 MObject FEMMesh::surfaceNodesObject;
@@ -48,26 +123,39 @@ MObject FEMMesh::volumeNodesObject;
 const MTypeId FEMMesh::id(0x00128581);
 const MString FEMMesh::typeName("femMesh");
 
+FEMMesh::Interrupter::Interrupter(MComputation * computation) : computation(computation) {}
+FEMMesh::Interrupter::~Interrupter() {}
+
+bool FEMMesh::Interrupter::wasInterrupted(int percent) {
+    return computation->isInterruptRequested();
+}
+
+void FEMMesh::Interrupter::start(const char * name) {}
+void FEMMesh::Interrupter::end() {}
+
 FEMMesh::FEMMesh() {}
 FEMMesh::~FEMMesh() {}
 
 void * FEMMesh::creator() {
-    return new FEMMesh;
+    return new FEMMesh();
 }
 MStatus FEMMesh::initialize() {
     MFnNumericAttribute numericAttribute;
     MFnTypedAttribute typedAttribute;
 
-    maximumElementSizeObject = numericAttribute.create("maximumElementSize", "mel",
+    volumeElementScaleObject = numericAttribute.create("volumeElementScale", "s",
         MFnNumericData::kDouble, 1.0);
     numericAttribute.setMin(1.0e-3);
-    numericAttribute.setSoftMax(1.0);
+    numericAttribute.setMax(1.0);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
-    gradingObject = numericAttribute.create("grading", "g", MFnNumericData::kDouble, 0.25);
-    numericAttribute.setMin(0);
-    numericAttribute.setMax(1.0);
+    useVoxelSizeObject = numericAttribute.create("useVoxelSize", "uvs", MFnNumericData::kBoolean, false);
+    numericAttribute.setStorable(true);
+    numericAttribute.setKeyable(true);
+
+    voxelSizeObject = numericAttribute.create("voxelSize", "vs", MFnNumericData::kDouble, 1.0);
+    numericAttribute.setMin(1.0e-3);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -86,19 +174,23 @@ MStatus FEMMesh::initialize() {
     typedAttribute.setWritable(false);
     typedAttribute.setStorable(false);
 
-    addAttribute(maximumElementSizeObject);
-    addAttribute(gradingObject);
+    addAttribute(volumeElementScaleObject);
+    addAttribute(useVoxelSizeObject);
+    addAttribute(voxelSizeObject);
     addAttribute(inputMeshObject);
     addAttribute(outputMeshObject);
     addAttribute(surfaceNodesObject);
     addAttribute(volumeNodesObject);
 
-    attributeAffects(maximumElementSizeObject, outputMeshObject);
-    attributeAffects(maximumElementSizeObject, surfaceNodesObject);
-    attributeAffects(maximumElementSizeObject, volumeNodesObject);
-    attributeAffects(gradingObject, outputMeshObject);
-    attributeAffects(gradingObject, surfaceNodesObject);
-    attributeAffects(gradingObject, volumeNodesObject);
+    attributeAffects(volumeElementScaleObject, outputMeshObject);
+    attributeAffects(volumeElementScaleObject, surfaceNodesObject);
+    attributeAffects(volumeElementScaleObject, volumeNodesObject);
+    attributeAffects(useVoxelSizeObject, outputMeshObject);
+    attributeAffects(useVoxelSizeObject, surfaceNodesObject);
+    attributeAffects(useVoxelSizeObject, volumeNodesObject);
+    attributeAffects(voxelSizeObject, outputMeshObject);
+    attributeAffects(voxelSizeObject, surfaceNodesObject);
+    attributeAffects(voxelSizeObject, volumeNodesObject);
     attributeAffects(inputMeshObject, outputMeshObject);
     attributeAffects(inputMeshObject, surfaceNodesObject);
     attributeAffects(inputMeshObject, volumeNodesObject);
@@ -106,27 +198,32 @@ MStatus FEMMesh::initialize() {
     return MS::kSuccess;
 }
 MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
-    MStatus status;
-
     if (plug != outputMeshObject && plug != surfaceNodesObject
         && plug != volumeNodesObject)
         return MS::kUnknownParameter;
 
-    MDataHandle maximumElementSizeHandle = data.inputValue(maximumElementSizeObject, &status);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
+    MStatus status;
 
-    MDataHandle gradingHandle = data.inputValue(gradingObject, &status);
+    MDataHandle volumeElementScaleHandle = data.inputValue(volumeElementScaleObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MDataHandle inputMeshHandle = data.inputValue(inputMeshObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle useVoxelSizeHandle = data.inputValue(useVoxelSizeObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
+    MDataHandle voxelSizeHandle = data.inputValue(voxelSizeObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MDataHandle outputMeshHandle = data.outputValue(outputMeshObject);
     MDataHandle surfaceNodesHandle = data.outputValue(surfaceNodesObject);
     MDataHandle volumeNodesHandle = data.outputValue(volumeNodesObject);
 
-    double maximumElementSize = maximumElementSizeHandle.asDouble();
-    double grading = gradingHandle.asDouble();
+    double volumeElementScale = volumeElementScaleHandle.asDouble();
+
+    bool useVoxelSize = useVoxelSizeHandle.asBool();
+    double voxelSize = voxelSizeHandle.asDouble();
 
     outputMeshHandle.set(inputMeshHandle.asMesh());
     MObject meshObject = outputMeshHandle.asMesh();
@@ -137,7 +234,7 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
     MIntArray surfaceNodes, volumeNodes;
 
     status = tetrahedralize(meshObject, surfaceNodes, volumeNodes,
-        maximumElementSize, grading);
+        volumeElementScale, useVoxelSize ? voxelSize : 0);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
     MFnIntArrayData intArrayData;
@@ -151,9 +248,10 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
 }
 
 MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
-    MIntArray & volumeNodes, double maximumElementSize, double grading) const {
-    MStatus status;
+    MIntArray & volumeNodes, double volumeElementScale, double voxelSize) {
+    computation.beginComputation();
 
+    MStatus status;
     MFnMesh mesh(meshObject);
 
     MPointArray vertexArray;
@@ -162,62 +260,139 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
     MIntArray triangleCounts, triangleVertices;
     mesh.getTriangles(triangleCounts, triangleVertices);
 
-    nglib::Initialize();
-
-    nglib::STLGeometry * surfaceMesh = nglib::STLNewGeometry();
-    nglib::Mesh * volumeMesh = nglib::NewMesh();
-
-    nglib::MeshingParameters parameters;
-    parameters.max_element_size = maximumElementSize;
-    parameters.grading = grading;
-    parameters.second_order = false;
+    triangleCounts.setLength(0);
 
     int triangleCount = triangleVertices.length() / 3;
 
-    for (int i = 0; i < triangleCount; i++) {
-        double points[12];
+    mesh.create(vertexArray.length(), triangleCount, vertexArray,
+        MIntArray(triangleCount, 3), triangleVertices, meshObject);
 
-        for (int j = 0; j < 3; j++) {
-            double * point = &points[j * 4];
+    double scale = volumeElementScale * computeAverageSize(meshObject);
 
-            vertexArray[triangleVertices[i * 3 + j]].get(point);
-        }
+    if (scale == 0) {
+        computation.endComputation();
+        return MS::kFailure;
+    }
 
-        nglib::STLAddTriangle(surfaceMesh, &points[0], &points[4], &points[8]);
+    Interrupter interrupter(&computation);
+
+    FEMMeshDataAdapter meshDataAdapter(vertexArray, triangleVertices,
+        voxelSize == 0 ? 0.125 * scale : voxelSize);
+
+    FEMFloatGrid::Ptr grid = openvdb::tools::meshToVolume<FEMFloatGrid>
+        (interrupter, meshDataAdapter, meshDataAdapter.getTransform());
+
+    if (computation.isInterruptRequested()) {
+        computation.endComputation();
+        return MS::kFailure;
     }
 
     vertexArray.setLength(0);
     triangleVertices.setLength(0);
 
+    FEMVolumeMesher volumeMesher;
+    volumeMesher(*grid);
+
+    if (computation.isInterruptRequested() || volumeMesher.pointListSize() == 0) {
+        computation.endComputation();
+        return MS::kFailure;
+    }
+
+    nglib::STLGeometry * surfaceMesh = nglib::STLNewGeometry();
+    nglib::Mesh * volumeMesh = nglib::NewMesh();
+
+    nglib::MeshingParameters parameters;
+    parameters.min_element_size = 0.25 * scale;
+    parameters.max_element_size = parameters.min_element_size * 1.1;
+    parameters.second_order = false;
+
+    FEMPointList & points = volumeMesher.pointList();
+    FEMPolygonList & polygons = volumeMesher.polygonPoolList();
+
+    for (size_t i = 0; i < volumeMesher.polygonPoolListSize(); i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
+        const FEMPolygon & polygon = polygons[i];
+
+        for (size_t j = 0; j < polygon.numTriangles(); j++) {
+            if (computation.isInterruptRequested()) {
+                computation.endComputation();
+                return MS::kFailure;
+            }
+
+            const FEMTriangle & triangle = polygon.triangle(j);
+
+            const FEMPoint & v0 = points[triangle[0]];
+            const FEMPoint & v1 = points[triangle[1]];
+            const FEMPoint & v2 = points[triangle[2]];
+
+            nglib::STLAddTriangle(surfaceMesh, (double *)v0.asPointer(),
+                (double *)v2.asPointer(), (double *)v1.asPointer());
+        }
+
+        for (size_t j = 0; j < polygon.numQuads(); j++) {
+            if (computation.isInterruptRequested()) {
+                computation.endComputation();
+                return MS::kFailure;
+            }
+
+            const FEMQuad & quad = polygon.quad(j);
+
+            const FEMPoint & v0 = points[quad[0]];
+            const FEMPoint & v1 = points[quad[1]];
+            const FEMPoint & v2 = points[quad[2]];
+            const FEMPoint & v3 = points[quad[3]];
+
+            nglib::STLAddTriangle(surfaceMesh, (double *)v0.asPointer(),
+                (double *)v2.asPointer(), (double *)v1.asPointer());
+
+            nglib::STLAddTriangle(surfaceMesh, (double *)v0.asPointer(),
+                (double *)v3.asPointer(), (double *)v2.asPointer());
+        }
+    }
+
+    points.reset();
+    polygons.reset();
+
     nglib::Status result = nglib::STLInitializeGeometry(surfaceMesh,
         volumeMesh, &parameters);
 
-    if (result != nglib::Status::Success)
+    if (computation.isInterruptRequested() || result != nglib::Status::Success) {
+        computation.endComputation();
         return MS::kFailure;
+    }
 
     result = nglib::STLGenerateSurfaceMesh(surfaceMesh, volumeMesh, &parameters);
 
-    if (result != nglib::Status::Success)
+    if (computation.isInterruptRequested() || result != nglib::Status::Success) {
+        computation.endComputation();
         return MS::kFailure;
+    }
 
     result = nglib::GenerateVolumeMesh(volumeMesh, &parameters);
 
-    if (result != nglib::Status::Success)
+    if (computation.isInterruptRequested() || result != nglib::Status::Success) {
+        computation.endComputation();
         return MS::kFailure;
+    }
 
     int pointCount = nglib::GetPointCount(volumeMesh);
     int surfaceCount = nglib::GetSurfaceCount(volumeMesh);
     int volumeCount = nglib::GetVolumeCount(volumeMesh);
 
-    triangleCount = volumeCount * 4;
-
     vertexArray.setLength(pointCount);
     surfaceNodes.setLength(surfaceCount * 3);
-    volumeNodes.setLength(triangleCount);
-
-    triangleVertices.setLength(triangleCount * 3);
+    volumeNodes.setLength(volumeCount * 4);
 
     for (int i = 0; i < pointCount; i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
         double point[3];
 
         nglib::GetPoint(volumeMesh, i, point);
@@ -226,6 +401,11 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
     }
 
     for (int i = 0; i < surfaceCount; i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
         int triangle[3];
 
         nglib::GetSurfaceElement(volumeMesh, i, triangle);
@@ -234,7 +414,14 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
             surfaceNodes[i * 3 + j] = triangle[j];
     }
 
+    FEMTriangleSet triangleIndices;
+
     for (int i = 0; i < volumeCount; i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
         int tetrahedron[4];
 
         nglib::GetVolumeElement(volumeMesh, i, tetrahedron);
@@ -244,62 +431,80 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
         volumeNodes[i * 4 + 2] = tetrahedron[3];
         volumeNodes[i * 4 + 3] = tetrahedron[2];
 
-        int s = i * 12;
-
-        triangleVertices[s] = tetrahedron[0];
-        triangleVertices[s + 1] = tetrahedron[1];
-        triangleVertices[s + 2] = tetrahedron[2];
-
-        triangleVertices[s + 3] = tetrahedron[1];
-        triangleVertices[s + 4] = tetrahedron[3];
-        triangleVertices[s + 5] = tetrahedron[2];
-
-        triangleVertices[s + 6] = tetrahedron[0];
-        triangleVertices[s + 7] = tetrahedron[2];
-        triangleVertices[s + 8] = tetrahedron[3];
-
-        triangleVertices[s + 9] = tetrahedron[0];
-        triangleVertices[s + 10] = tetrahedron[3];
-        triangleVertices[s + 11] = tetrahedron[1];
+        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[1], tetrahedron[2]));
+        triangleIndices.insert(FEMTriangle(tetrahedron[1], tetrahedron[3], tetrahedron[2]));
+        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[2], tetrahedron[3]));
+        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[3], tetrahedron[1]));
     }
+
+    triangleCount = triangleIndices.size();
+    triangleVertices.setLength(triangleCount * 3);
+
+    FEMTriangleSet::const_iterator it = triangleIndices.begin();
+
+    for (int i = 0; i < triangleCount; i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
+        const FEMTriangle & triangle = *it++;
+
+        for (int j = 0; j < 3; j++)
+            triangleVertices[i * 3 + j] = triangle[j];
+    }
+
+    triangleIndices.clear();
 
     nglib::DeleteMesh(volumeMesh);
     nglib::STLDeleteGeometry(surfaceMesh);
 
-    for (int i = 0; i < triangleCount; i++) {
-        const int * ti = &triangleVertices[i * 3];
-
-        for (int j = i + 1; j < triangleCount; j++) {
-            const int * tj = &triangleVertices[j * 3];
-
-            if (compareTriangle(ti, tj)) {
-                triangleVertices.remove(j * 3 + 2);
-                triangleVertices.remove(j * 3 + 1);
-                triangleVertices.remove(j * 3);
-
-                triangleCount--;
-
-                break;
-            }
-        }
-    }
-
-    triangleVertices.setLength(triangleCount * 3);
-
     mesh.create(pointCount, triangleCount, vertexArray,
         MIntArray(triangleCount, 3), triangleVertices, meshObject);
 
-    for (int i = 0; i < mesh.numEdges(); i++)
+    for (int i = 0; i < mesh.numEdges(); i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
         mesh.setEdgeSmoothing(i, false);
+    }
 
     mesh.cleanupEdgeSmoothing();
+    computation.endComputation();
 
     return MS::kSuccess;
 }
-bool FEMMesh::compareTriangle(const int * lhs, const int * rhs) const {
-    bool t0 = lhs[0] == rhs[0] || lhs[0] == rhs[1] || lhs[0] == rhs[2];
-    bool t1 = lhs[1] == rhs[0] || lhs[1] == rhs[1] || lhs[1] == rhs[2];
-    bool t2 = lhs[2] == rhs[0] || lhs[2] == rhs[1] || lhs[2] == rhs[2];
+double FEMMesh::computeAverageSize(MObject & meshObject) {
+    MItMeshVertex vertexIt(meshObject);
+    MPoint centroid;
 
-    return t0 && t1 && t2;
+    for (; !vertexIt.isDone(); vertexIt.next()) {
+        if (computation.isInterruptRequested())
+            return 0;
+
+        centroid += vertexIt.position();
+    }
+
+    int vertexCount = vertexIt.count();
+
+    if (vertexCount == 0)
+        return 0;
+
+    centroid.x /= vertexCount;
+    centroid.y /= vertexCount;
+    centroid.z /= vertexCount;
+
+    double squaredDistanceSum = 0;
+
+    for (vertexIt.reset(); !vertexIt.isDone(); vertexIt.next()) {
+        if (computation.isInterruptRequested())
+            return 0;
+
+        MVector distance = vertexIt.position() - centroid;
+        squaredDistanceSum += distance * distance;
+    }
+
+    return 2.0 * std::sqrt(squaredDistanceSum / vertexCount);
 }

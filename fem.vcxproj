@@ -11,7 +11,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="res\fem.mod" />
     <None Include="res\icons\activeFEMObject.svg" />
     <None Include="res\icons\femMesh.svg" />
     <None Include="res\icons\femObject.svg" />
@@ -34,6 +33,7 @@
     <ClCompile Include="src\femSolver.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\femPlugin.h" />
     <ClInclude Include="include\femMesh.h" />
     <ClInclude Include="include\femObject.h" />
     <ClInclude Include="include\femObjectData.h" />
@@ -59,7 +59,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{3EDA76B4-C187-4710-B312-05C951CD94DB}</ProjectGuid>
     <RootNamespace>fem</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.14393.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'" Label="Configuration">
@@ -89,14 +89,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)\build\$(Configuration)\fem\plug-ins\</OutDir>
-    <IntDir>build\$(Configuration)\fem\plug-ins\</IntDir>
+    <OutDir>$(SolutionDir)\build\$(Configuration)\plug-ins\</OutDir>
+    <IntDir>build\$(Configuration)\plug-ins\</IntDir>
     <TargetExt>.mll</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)\build\$(Configuration)\fem\plug-ins\</OutDir>
-    <IntDir>build\$(Configuration)\fem\plug-ins\</IntDir>
+    <OutDir>$(SolutionDir)\build\$(Configuration)\plug-ins\</OutDir>
+    <IntDir>build\$(Configuration)\plug-ins\</IntDir>
     <TargetExt>.mll</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
@@ -104,24 +104,24 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;_DEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(TBB_PATH)\include\</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>OPENVDB_DLL;NOMINMAX;_WINDOWS;_WIN64;_USRDLL;_DEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(ALEMBIC_PATH)\include\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ILMBASE_PATH)\include\OpenEXR\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
       <OpenMPSupport>
       </OpenMPSupport>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(TBB_PATH)\lib\intel64\vc14\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;tbb_debug.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(ALEMBIC_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;Alembic.lib;openvdb.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb_debug.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
-xcopy /s /i /y "$(ProjectDir)\extlib\nglib\build\nglib\bin\*" "$(ProjectDir)\build\$(Configuration)\$(TargetName)\bin"
-for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
+      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\"
+for %%f in ("$(ProjectDir)\extlib\nglib\build\nglib\lib\nglib.dll" "$(ALEMBIC_PATH)\lib\Alembic.dll" "$(OPENVDB_PATH)\lib\openvdb.dll" "$(BOOST_PATH)\lib64-msvc-14.1\boost_system-vc141-mt-1_64.dll" "$(BOOST_PATH)\lib64-msvc-14.1\boost_iostreams-vc141-mt-1_64.dll" "$(TBB_PATH)\bin\intel64\vc14\tbb_debug.dll" "$(ILMBASE_PATH)\lib\half.dll" "$(ILMBASE_PATH)\lib\Imath-2_2.dll" "$(ILMBASE_PATH)\lib\IexMath-2_2.dll" "$(ILMBASE_PATH)\lib\IlmThread-2_2.dll" "$(ILMBASE_PATH)\lib\Iex-2_2.dll" "$(ZLIB_PATH)\lib\zlib1.dll") do xcopy /s /i /y "%%f" "$(ProjectDir)\build\$(Configuration)\bin\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
@@ -131,8 +131,8 @@ for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del 
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_WINDOWS;_WIN64;_USRDLL;NDEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(TBB_PATH)\include\</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>OPENVDB_DLL;NOMINMAX;_WINDOWS;_WIN64;_USRDLL;NDEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(ALEMBIC_PATH)\include\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ILMBASE_PATH)\include\OpenEXR\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
       <OpenMPSupport>
       </OpenMPSupport>
     </ClCompile>
@@ -141,16 +141,17 @@ for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del 
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(TBB_PATH)\lib\intel64\vc14\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;tbb.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(ALEMBIC_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;nglib.lib;Alembic.lib;openvdb.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\$(TargetName)"
-xcopy /s /i /y "$(ProjectDir)\extlib\nglib\build\nglib\bin\*" "$(ProjectDir)\build\$(Configuration)\$(TargetName)\bin"
-for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"</Command>
+      <Command>xcopy /s /i /y "$(ProjectDir)\res" "$(ProjectDir)\build\$(Configuration)\"
+for %%f in ("$(ProjectDir)\extlib\nglib\build\nglib\lib\nglib.dll" "$(ALEMBIC_PATH)\lib\Alembic.dll" "$(OPENVDB_PATH)\lib\openvdb.dll" "$(BOOST_PATH)\lib64-msvc-14.1\boost_system-vc141-mt-1_64.dll" "$(BOOST_PATH)\lib64-msvc-14.1\boost_iostreams-vc141-mt-1_64.dll" "$(TBB_PATH)\bin\intel64\vc14\tbb.dll" "$(ILMBASE_PATH)\lib\half.dll" "$(ILMBASE_PATH)\lib\Imath-2_2.dll" "$(ILMBASE_PATH)\lib\IexMath-2_2.dll" "$(ILMBASE_PATH)\lib\IlmThread-2_2.dll" "$(ILMBASE_PATH)\lib\Iex-2_2.dll" "$(ZLIB_PATH)\lib\zlib1.dll") do xcopy /s /i /y "%%f" "$(ProjectDir)\build\$(Configuration)\bin\"
+for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del /s /f /q "%%f"
+makensis "$(ProjectDir)\setup\setup.nsi"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -56,9 +56,6 @@
     <None Include="res\icons\passiveFEMObject.svg">
       <Filter>Resource Files\Icon Files</Filter>
     </None>
-    <None Include="res\fem.mod">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="res\scripts\deleteFEMSystem.mel">
       <Filter>Resource Files\Script Files</Filter>
     </None>
@@ -91,6 +88,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\femMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\femPlugin.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

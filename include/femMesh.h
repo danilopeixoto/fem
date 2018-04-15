@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -36,11 +36,70 @@
 #include <maya/MPlug.h>
 #include <maya/MDataBlock.h>
 #include <maya/MIntArray.h>
+#include <maya/MPointArray.h>
+#include <maya/MComputation.h>
+
+#include <openvdb/openvdb.h>
+#include <openvdb/tools/MeshToVolume.h>
+#include <openvdb/tools/VolumeToMesh.h>
+
+#include <unordered_set>
+
+typedef openvdb::Vec3d FEMPoint;
+typedef openvdb::Vec3I FEMTriangle;
+typedef openvdb::Vec4I FEMQuad;
+typedef openvdb::FloatGrid FEMFloatGrid;
+typedef openvdb::math::Transform FEMTransform;
+typedef openvdb::tools::PolygonPool FEMPolygon;
+typedef openvdb::tools::VolumeToMesh FEMVolumeMesher;
+typedef openvdb::tools::PointList FEMPointList;
+typedef openvdb::tools::PolygonPoolList FEMPolygonList;
+
+class FEMMeshDataAdapter {
+public:
+    FEMMeshDataAdapter(MPointArray &, MIntArray &, double);
+
+    size_t pointCount() const;
+    size_t polygonCount() const;
+    size_t vertexCount(size_t) const;
+
+    void getIndexSpacePoint(size_t, size_t, FEMPoint &) const;
+
+    const FEMTransform & getTransform() const;
+
+private:
+    static const size_t three;
+
+    size_t numberPoints;
+    size_t numberTriangles;
+
+    MPointArray * points;
+    MIntArray * triangles;
+
+    FEMTransform::Ptr transform;
+};
+
+struct FEMTriangleHash {
+    FEMTriangleHash();
+    ~FEMTriangleHash();
+
+    size_t operator ()(const FEMTriangle &) const;
+};
+
+struct FEMTriangleEqual {
+    FEMTriangleEqual();
+    ~FEMTriangleEqual();
+
+    bool operator ()(const FEMTriangle &, const FEMTriangle &) const;
+};
+
+typedef std::unordered_set<FEMTriangle, FEMTriangleHash, FEMTriangleEqual> FEMTriangleSet;
 
 class FEMMesh : public MPxNode {
 public:
-    static MObject maximumElementSizeObject;
-    static MObject gradingObject;
+    static MObject volumeElementScaleObject;
+    static MObject useVoxelSizeObject;
+    static MObject voxelSizeObject;
     static MObject inputMeshObject;
     static MObject outputMeshObject;
     static MObject surfaceNodesObject;
@@ -48,6 +107,8 @@ public:
 
     static const MTypeId id;
     static const MString typeName;
+
+    MComputation computation;
 
     FEMMesh();
     virtual ~FEMMesh();
@@ -57,8 +118,22 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, double, double) const;
-    bool compareTriangle(const int *, const int *) const;
+    class Interrupter {
+    public:
+        Interrupter(MComputation *);
+        ~Interrupter();
+
+        void start(const char * = nullptr);
+        void end();
+
+        bool wasInterrupted(int = -1);
+
+    private:
+        MComputation * computation;
+    };
+
+    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, double, double);
+    double computeAverageSize(MObject &);
 };
 
 #endif

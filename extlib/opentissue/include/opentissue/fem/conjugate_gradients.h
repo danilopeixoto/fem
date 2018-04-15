@@ -35,31 +35,28 @@ namespace opentissue {
                 node_iterator nbegin = mesh.node_begin();
                 node_iterator nend = mesh.node_end();
 
-                tbb::parallel_for(tbb::blocked_range<size_t>(0, mesh.size_nodes()),
-                    [&](const tbb::blocked_range<size_t> &range) {
-                    for (size_t i = range.begin(); i != range.end(); i++) {
-                        node_iterator node = mesh.node(i);
+                tbb::parallel_for(size_t(0), mesh.size_nodes(), [&](size_t i) {
+                    node_iterator node = mesh.node(i);
 
-                        if (node->m_fixed)
-                            continue;
+                    if (node->m_fixed)
+                        return;
 
-                        node->m_residual = node->m_b;
+                    node->m_residual = node->m_b;
 
-                        matrix_iterator Abegin = node->Abegin();
-                        matrix_iterator Aend = node->Aend();
+                    matrix_iterator Abegin = node->Abegin();
+                    matrix_iterator Aend = node->Aend();
 
-                        for (matrix_iterator A = Abegin; A != Aend; A++) {
-                            unsigned int j = A->first;
+                    for (matrix_iterator A = Abegin; A != Aend; A++) {
+                        unsigned int j = A->first;
 
-                            matrix_type &A_ij = A->second;
-                            node_iterator n_j = mesh.node(j);
-                            vector_type &v_j = n_j->m_velocity;
+                        matrix_type &A_ij = A->second;
+                        node_iterator n_j = mesh.node(j);
+                        vector_type &v_j = n_j->m_velocity;
 
-                            node->m_residual -= A_ij * v_j;
-                        }
-
-                        node->m_prev = node->m_residual;
+                        node->m_residual -= A_ij * v_j;
                     }
+
+                    node->m_prev = node->m_residual;
                 });
 
                 for (unsigned int iteration = 0; iteration < max_iterations; iteration++) {

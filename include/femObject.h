@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,7 @@
 #ifndef FEM_OBJECT
 #define FEM_OBJECT
 
-#include "femObjectData.h"
+#include <femObjectData.h>
 
 #include <maya/MPxNode.h>
 #include <maya/MObject.h>
@@ -82,6 +82,7 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
+    bool updateInitialData;
     FEMParameters parameters;
 
     void updateOutputMesh(const FEMObjectData *, MObject &) const;

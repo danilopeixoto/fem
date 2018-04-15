@@ -25,46 +25,33 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-global proc string getConnectionSource(string $node, string $attribute) {
-    string $source = `connectionInfo -sourceFromDestination ($node + "." + $attribute)`;
-    
-    return `match "^[^\.]+" $source`;
-}
+#ifndef FEM_PLUGIN_H
+#define FEM_PLUGIN_H
 
-global proc deleteFEMSystem() {
-    string $solverList[] = `ls -type "femSolver"`;
-    
-    if (`size $solverList` == 0)
-        error "Current scene does not contain a FEM system.";
-        
-    for ($solver in $solverList) {
-        string $objectList[] = `listConnections ($solver + ".currentState")`;
-        
-        for ($object in $objectList) {
-            string $outputMeshList[] = `listConnections -shapes true ($object + ".outputMesh")`;
-            
-            string $femMesh = `getConnectionSource $object "inputMesh"`;
-            string $inputMesh = `getConnectionSource $femMesh "inputMesh"`;
-            
-            string $parentList[] = `listRelatives -parent -type "transform" $inputMesh`;
-            
-            setAttr ($inputMesh + ".intermediateObject") false;
-            setAttr ($parentList[0] + ".hiddenInOutliner") false;
-            
-            AEdagNodeCommonRefreshOutliners();
-            
-            for ($outputMesh in $outputMeshList) {
-                $parentList = `listRelatives -parent -type "transform" $outputMesh`;
-                
-                delete $outputMesh;
-                delete $parentList[0];
-            }
-            
-            delete $femMesh;
-        }
-        
-        delete $solver;
-    }
-    
-    warning "FEM system was successfully removed.";
-}
+#define FEM_PLUGIN_NAME "FEM"
+#define FEM_PLUGIN_VERSION "1.0.0"
+#define FEM_PLUGIN_AUTHOR "Danilo Ferreira"
+#define FEM_PLUGIN_LICENSE "BSD-3-Clause License"
+#define FEM_PLUGIN_COPYRIGHT "Copyright (c) 2018, Danilo Ferreira. All rights reserved."
+
+#include <maya/MObject.h>
+#include <maya/MString.h>
+#include <maya/MStatus.h>
+
+class FEMPlugin {
+private:
+    FEMPlugin();
+    ~FEMPlugin();
+
+public:
+    static MStatus initialize(MObject &, const MString &, const MString &);
+    static MStatus uninitialize(MObject &);
+
+    static double getStartTime();
+    static double getEndTime();
+    static double getFramerate();
+    static MString getCacheName();
+    static MString getCacheDirectory();
+};
+
+#endif

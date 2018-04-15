@@ -16,7 +16,6 @@
 #include <opentissue/fem/compute_ke.h>
 
 #include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
 
 namespace opentissue {
     namespace fem {
@@ -35,32 +34,29 @@ namespace opentissue {
                 for (node_iterator n = nbegin; n != nend; n++)
                     n->m_world_coord = n->m_coord;
 
-                tbb::parallel_for(tbb::blocked_range<size_t>(0, mesh.size_tetrahedra()),
-                    [&](const tbb::blocked_range<size_t> &range) {
-                    for (size_t i = range.begin(); i != range.end(); i++) {
-                        tetrahedron_iterator tet = mesh.tetrahedron(i);
+                tbb::parallel_for(size_t(0), mesh.size_tetrahedra(), [&](size_t i) {
+                    tetrahedron_iterator tet = mesh.tetrahedron(i);
 
-                        tet->m_density = density;
-                        tet->m_poisson = poisson;
-                        tet->m_young = young;
-                        tet->m_yield = c_yield;
-                        tet->m_max_yield = c_max_yield;
-                        tet->m_creep = c_creep;
+                    tet->m_density = density;
+                    tet->m_poisson = poisson;
+                    tet->m_young = young;
+                    tet->m_yield = c_yield;
+                    tet->m_max_yield = c_max_yield;
+                    tet->m_creep = c_creep;
 
-                        tet->m_e10 = tet->j()->m_coord - tet->i()->m_coord;
-                        tet->m_e20 = tet->k()->m_coord - tet->i()->m_coord;
-                        tet->m_e30 = tet->m()->m_coord - tet->i()->m_coord;
+                    tet->m_e10 = tet->j()->m_coord - tet->i()->m_coord;
+                    tet->m_e20 = tet->k()->m_coord - tet->i()->m_coord;
+                    tet->m_e30 = tet->m()->m_coord - tet->i()->m_coord;
 
-                        tet->m_volume = compute_volume(tet->m_e10, tet->m_e20, tet->m_e30);
+                    tet->m_volume = compute_volume(tet->m_e10, tet->m_e20, tet->m_e30);
 
-                        compute_b(tet);
-                        compute_isotropic_elasticity(tet);
+                    compute_b(tet);
+                    compute_isotropic_elasticity(tet);
 
-                        compute_ke(tet);
+                    compute_ke(tet);
 
-                        for (unsigned int i = 0; i < 6; i++)
-                            tet->m_plastic[i] = 0;
-                    }
+                    for (unsigned int i = 0; i < 6; i++)
+                        tet->m_plastic[i] = 0;
                 });
             }
         }

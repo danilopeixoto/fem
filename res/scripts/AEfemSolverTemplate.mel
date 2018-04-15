@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -24,6 +24,46 @@
 // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+global proc string getAttributeName(string $nodeAttribute) {
+    return `match "[^\.]+$" $nodeAttribute`;
+}
+
+global proc AEfemSolverDirectoryBrowser(string $nodeAttribute) {
+    string $paths[] = `fileDialog2 -caption "Select Directory" -okCaption "Select" -fileMode 3`;
+    
+    if (`size $paths` != 0)
+        setAttr $nodeAttribute -type "string" $paths[0];
+}
+
+global proc AEfemSolverDirectoryNew(string $nodeAttribute) {
+    string $attribute = `getAttributeName $nodeAttribute`;
+    
+    string $directoryField = $attribute + "_directoryField";
+    string $browserButton = $attribute + "_browserButton";
+    
+    setUITemplate -pushTemplate attributeEditorTemplate;
+    
+    rowLayout -height 25 -numberOfColumns 3;
+    text -label `interToUI $attribute`;
+    textField $directoryField;
+    symbolButton -image "navButtonBrowse.png" $browserButton;
+    setParent ..;
+    
+    setUITemplate -popTemplate;
+    
+    AEfemSolverDirectoryReplace $nodeAttribute;
+}
+
+global proc AEfemSolverDirectoryReplace(string $nodeAttribute) {
+    string $attribute = `getAttributeName $nodeAttribute`;
+    
+    string $directoryField = $attribute + "_directoryField";
+    string $browserButton = $attribute + "_browserButton";
+    
+    connectControl -fileName $directoryField $nodeAttribute;
+    button -edit -command ("AEfemSolverDirectoryBrowser \"" + $nodeAttribute + "\"") $browserButton;
+}
 
 global proc AEfemSolverSetControls(string $nodeName) {
     int $disable = !`getAttr ($nodeName + ".enable")`;
@@ -51,11 +91,18 @@ global proc AEfemSolverTemplate(string $nodeName) {
     editorTemplate -endLayout;
 
     editorTemplate -beginLayout "Solver Attributes" -collapse true;
-
     editorTemplate -addControl "maximumIterations";
-
     editorTemplate -endLayout;
 
+    editorTemplate -beginLayout "Cache" -collapse true;
+
+    editorTemplate -addControl "useDiskCache";
+    editorTemplate -addControl "cacheName";
+    editorTemplate -callCustom "AEfemSolverDirectoryNew" "AEfemSolverDirectoryReplace" "directory";
+    
+    editorTemplate -endLayout;
+
+    editorTemplate -suppress "currentTime";
     editorTemplate -suppress "currentState";
 
     AEdependNodeTemplate $nodeName;

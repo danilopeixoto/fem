@@ -25,7 +25,7 @@ namespace opentissue {
                 tetrahedron_iterator tbegin = mesh.tetrahedron_begin();
                 tetrahedron_iterator tend = mesh.tetrahedron_end();
 
-				for (tetrahedron_iterator t = tbegin; t != tend; t++) {
+                for (tetrahedron_iterator t = tbegin; t != tend; t++) {
                     matrix_type const &Re = t->m_Re;
 
                     for (unsigned int i = 0; i < 4; i++) {

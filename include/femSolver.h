@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,7 @@
 #ifndef FEM_SOLVER
 #define FEM_SOLVER
 
-#include "femObjectData.h"
+#include <femObjectData.h>
 
 #include <maya/MPxNode.h>
 #include <maya/MObject.h>
@@ -36,37 +36,56 @@
 #include <maya/MString.h>
 #include <maya/MStatus.h>
 #include <maya/MPlug.h>
+#include <maya/MPlugArray.h>
 #include <maya/MDataBlock.h>
 #include <maya/MVector.h>
+#include <maya/MComputation.h>
+
+#include <Alembic/Abc/Foundation.h>
+
+#include <vector>
+
+typedef Alembic::Abc::V3f FEMFloatPoint;
+typedef Alembic::Abc::Box3d FEMBoundingBox;
+template<typename T> using FEMList = std::vector<T>;
+typedef FEMList<FEMObjectData *> FEMFrameData;
 
 class FEMSolver : public MPxNode {
 public:
     static MObject enableObject;
     static MObject startTimeObject;
+    static MObject currentTimeObject;
     static MObject substepsObject;
     static MObject gravityXObject;
     static MObject gravityYObject;
     static MObject gravityZObject;
     static MObject gravityObject;
     static MObject maximumIterationsObject;
+    static MObject useDiskCacheObject;
+    static MObject cacheNameObject;
+    static MObject directoryObject;
     static MObject currentStateObject;
     static MObject outputStateObject;
 
     static const MTypeId id;
     static const MString typeName;
 
+    MComputation computation;
+
     FEMSolver();
     virtual ~FEMSolver();
 
     static void * creator();
     static MStatus initialize();
+    virtual void postConstructor();
+    virtual MStatus	setDependentsDirty(const MPlug &, MPlugArray &);
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
+    static MString cacheFilename(const MString &, const MString &, unsigned int);
 
-    static double getStartTime();
-    static double getFramerate();
+    void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
+    bool exportFrame(const FEMFrameData &, const MString &);
 };
 
 #endif

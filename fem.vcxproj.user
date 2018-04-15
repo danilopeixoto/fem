@@ -4,10 +4,14 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>
     </RemoteDebuggerCommand>
+    <RemoteDebuggerAttach>
+    </RemoteDebuggerAttach>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>
     </RemoteDebuggerCommand>
+    <RemoteDebuggerAttach>
+    </RemoteDebuggerAttach>
   </PropertyGroup>
 </Project>

@@ -1,4 +1,4 @@
-// Copyright (c) 2017, Danilo Peixoto. All rights reserved.
+// Copyright (c) 2018, Danilo Ferreira. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -33,10 +33,14 @@
 #include <maya/MString.h>
 #include <maya/MObject.h>
 #include <maya/MVector.h>
+#include <maya/MMatrix.h>
 #include <maya/MIntArray.h>
+#include <maya/MArgList.h>
 
 #include <opentissue/math/math.h>
 #include <opentissue/fem/fem.h>
+
+#include <iostream>
 
 typedef opentissue::math::Types<double, unsigned int> FEMMathTypes;
 typedef FEMMathTypes::vector_type FEMVector;
@@ -62,7 +66,7 @@ struct FEMParameters {
     MObject meshObject;
     MObject surfaceNodesObject;
     MObject volumeNodesObject;
-    MObject matrixObject;
+    MMatrix matrix;
 
     bool updateParameters;
     bool updateMesh;
@@ -86,6 +90,11 @@ public:
 
     static void * creator();
     virtual	void copy(const MPxData &);
+
+    virtual MStatus readASCII(const MArgList &, unsigned int &);
+    virtual MStatus readBinary(std::istream &, unsigned int);
+    virtual MStatus writeASCII(std::ostream &);
+    virtual MStatus writeBinary(std::ostream &);
 
     FEMObjectData & reset();
 

@@ -14,7 +14,6 @@
 #include <opentissue/fem/compute_ke.h>
 
 #include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
 
 namespace opentissue {
     namespace fem {
@@ -25,25 +24,22 @@ namespace opentissue {
             real_type const &c_creep) {
             typedef typename fem_mesh::tetrahedron_iterator tetrahedron_iterator;
 
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, mesh.size_tetrahedra()),
-                [&](const tbb::blocked_range<size_t> &range) {
-                for (size_t i = range.begin(); i != range.end(); i++) {
-                    tetrahedron_iterator tet = mesh.tetrahedron(i);
+            tbb::parallel_for(size_t(0), mesh.size_tetrahedra(), [&](size_t i) {
+                tetrahedron_iterator tet = mesh.tetrahedron(i);
 
-                    tet->m_density = density;
-                    tet->m_poisson = poisson;
-                    tet->m_young = young;
-                    tet->m_yield = c_yield;
-                    tet->m_max_yield = c_max_yield;
-                    tet->m_creep = c_creep;
+                tet->m_density = density;
+                tet->m_poisson = poisson;
+                tet->m_young = young;
+                tet->m_yield = c_yield;
+                tet->m_max_yield = c_max_yield;
+                tet->m_creep = c_creep;
 
-                    detail::compute_isotropic_elasticity(tet);
+                detail::compute_isotropic_elasticity(tet);
 
-                    detail::compute_ke(tet);
+                detail::compute_ke(tet);
 
-                    for (unsigned int i = 0; i < 6; i++)
-                        tet->m_plastic[i] = 0;
-                }
+                for (unsigned int i = 0; i < 6; i++)
+                    tet->m_plastic[i] = 0;
             });
         }
     }
