@@ -41,7 +41,28 @@
     <None Include="res\scripts\createFEMObject.mel">
       <Filter>Resource Files\Script Files</Filter>
     </None>
+    <None Include="res\scripts\deleteFEMSystem.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\exportFEMCacheOptions.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\importFEMCacheOptions.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\exportFEMCache.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
+    <None Include="res\scripts\importFEMCache.mel">
+      <Filter>Resource Files\Script Files</Filter>
+    </None>
     <None Include="res\icons\activeFEMObject.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\deleteFEMSystem.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
+    <None Include="res\icons\exportFEMCache.svg">
       <Filter>Resource Files\Icon Files</Filter>
     </None>
     <None Include="res\icons\femMesh.svg">
@@ -53,10 +74,13 @@
     <None Include="res\icons\femSolver.svg">
       <Filter>Resource Files\Icon Files</Filter>
     </None>
+    <None Include="res\icons\importFEMCache.svg">
+      <Filter>Resource Files\Icon Files</Filter>
+    </None>
     <None Include="res\icons\passiveFEMObject.svg">
       <Filter>Resource Files\Icon Files</Filter>
     </None>
-    <None Include="res\scripts\deleteFEMSystem.mel">
+    <None Include="res\scripts\initializeFEM.mel">
       <Filter>Resource Files\Script Files</Filter>
     </None>
   </ItemGroup>
@@ -104,6 +128,24 @@
     <Image Include="res\icons\activeFEMObject_200.png">
       <Filter>Resource Files\Icon Files</Filter>
     </Image>
+    <Image Include="res\icons\deleteFEMSystem.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\deleteFEMSystem_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\deleteFEMSystem_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\exportFEMCache.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\exportFEMCache_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\exportFEMCache_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
     <Image Include="res\icons\femMesh.png">
       <Filter>Resource Files\Icon Files</Filter>
     </Image>
@@ -129,6 +171,15 @@
       <Filter>Resource Files\Icon Files</Filter>
     </Image>
     <Image Include="res\icons\femSolver_200.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\importFEMCache.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\importFEMCache_150.png">
+      <Filter>Resource Files\Icon Files</Filter>
+    </Image>
+    <Image Include="res\icons\importFEMCache_200.png">
       <Filter>Resource Files\Icon Files</Filter>
     </Image>
     <Image Include="res\icons\passiveFEMObject.png">

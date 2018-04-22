@@ -71,8 +71,6 @@ global proc string[] addFEMObject(int $passive) {
             setAttr ($inputMesh + ".intermediateObject") true;
             setAttr ($parentList[0] + ".hiddenInOutliner") true;
             
-            AEdagNodeCommonRefreshOutliners();
-            
             connectAttr -force ($inputMesh + ".inMesh") ($femMesh + ".inputMesh");
             connectAttr -force ($inputMesh + ".worldMatrix") ($femObject + ".matrix");
 
@@ -102,6 +100,11 @@ global proc string[] addFEMObject(int $passive) {
 
     select $selectionList;
 
+    float $startTime = `getAttr ($femSolver + ".startTime")`;
+    currentTime $startTime;
+
+    AEdagNodeCommonRefreshOutliners();
+    
     return $nodeList;
 }
 

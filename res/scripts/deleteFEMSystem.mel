@@ -31,27 +31,27 @@ global proc string getConnectionSource(string $node, string $attribute) {
     return `match "^[^\.]+" $source`;
 }
 
-global proc deleteFEMSystem() {
+global proc string[] deleteFEMSystem() {
     string $solverList[] = `ls -type "femSolver"`;
     
-    if (`size $solverList` == 0)
+    if (`size $solverList` == 0) {
         error "Current scene does not contain a FEM system.";
+        return {};
+    }
         
-    for ($solver in $solverList) {
-        string $objectList[] = `listConnections ($solver + ".currentState")`;
+    for ($femSolver in $solverList) {
+        string $objectList[] = `listConnections ($femSolver + ".currentState")`;
         
-        for ($object in $objectList) {
-            string $outputMeshList[] = `listConnections -shapes true ($object + ".outputMesh")`;
+        for ($femObject in $objectList) {
+            string $outputMeshList[] = `listConnections -shapes true ($femObject + ".outputMesh")`;
             
-            string $femMesh = `getConnectionSource $object "inputMesh"`;
+            string $femMesh = `getConnectionSource $femObject "inputMesh"`;
             string $inputMesh = `getConnectionSource $femMesh "inputMesh"`;
             
             string $parentList[] = `listRelatives -parent -type "transform" $inputMesh`;
             
             setAttr ($inputMesh + ".intermediateObject") false;
             setAttr ($parentList[0] + ".hiddenInOutliner") false;
-            
-            AEdagNodeCommonRefreshOutliners();
             
             for ($outputMesh in $outputMeshList) {
                 $parentList = `listRelatives -parent -type "transform" $outputMesh`;
@@ -63,8 +63,10 @@ global proc deleteFEMSystem() {
             delete $femMesh;
         }
         
-        delete $solver;
+        delete $femSolver;
     }
+
+    AEdagNodeCommonRefreshOutliners();
     
-    warning "FEM system was successfully removed.";
+    return $solverList;
 }

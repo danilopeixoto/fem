@@ -25,35 +25,23 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef FEM_PLUGIN_H
-#define FEM_PLUGIN_H
+global proc string importFEMCache() {
+    if (!`pluginInfo -query -loaded "AbcImport"`) {
+        error "Alembic importer plugin is not loaded.";
+        return "";
+    }
 
-#define FEM_PLUGIN_NAME "FEM"
-#define FEM_PLUGIN_VERSION "1.0.0"
-#define FEM_PLUGIN_AUTHOR "Danilo Ferreira"
-#define FEM_PLUGIN_LICENSE "BSD-3-Clause License"
-#define FEM_PLUGIN_COPYRIGHT "Copyright (c) 2018, Danilo Ferreira. All rights reserved."
+    string $filename = `optionVar -query femCacheDirectory` +
+        "/" + `optionVar -query femCacheName` + ".abc";
 
-#include <maya/MObject.h>
-#include <maya/MStatus.h>
-#include <maya/MString.h>
-#include <maya/MTime.h>
+    string $cacheNode = `AbcImport $filename`;
 
-class FEMPlugin {
-private:
-    FEMPlugin();
-    ~FEMPlugin();
-
-public:
-    static MStatus initialize(MObject &, const MString &, const MString &);
-    static MStatus uninitialize(MObject &);
-
-    static MTime getStartTime();
-    static MTime getEndTime();
-    static MTime getCurrentTime();
-    static double getFramerate();
-    static MString getDefaultCacheName();
-    static MString getDefaultCacheDirectory();
-};
-
-#endif
+    if (!`objExists $cacheNode`) {
+        error "Cannot import FEM cache to scene.";
+        return "";
+    }
+    
+    string $femCache = `rename $cacheNode "femCache#"`;
+    
+    return $femCache;
+}

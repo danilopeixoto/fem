@@ -45,4 +45,20 @@ global proc shelf_FEM() {
         -annotation "Delete FEM System: Remove the entire FEM system in the scene."
         -image1 "deleteFEMSystem.png"
         -command "deleteFEMSystem";
+
+    addShelfSeparator();
+
+    shelfButton
+        -label "Import FEM Cache"
+        -annotation "Import FEM Cache: Import a simulated sequence of FEM meshes to the scene."
+        -image1 "importFEMCache.png"
+        -command "importFEMCache"
+        -doubleClickCommand "importFEMCacheOptions";
+
+    shelfButton
+        -label "Export FEM Cache"
+        -annotation "Export FEM Cache: Export a simulated sequence of FEM meshes to a cache file."
+        -image1 "exportFEMCache.png"
+        -command "exportFEMCache"
+        -doubleClickCommand "exportFEMCacheOptions";
 }

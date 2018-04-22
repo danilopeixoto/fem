@@ -443,4 +443,9 @@ void FEMObject::updateOutputMesh(const FEMObjectData * objectData,
 
     mesh.create(pointCount, surfaceCount, points,
         MIntArray(surfaceCount, 3), *surfaceNodes, meshObject);
+
+    for (int i = 0; i < mesh.numEdges(); i++)
+        mesh.setEdgeSmoothing(i, false);
+
+    mesh.cleanupEdgeSmoothing();
 }

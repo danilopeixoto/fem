@@ -41,15 +41,6 @@
 #include <maya/MVector.h>
 #include <maya/MComputation.h>
 
-#include <Alembic/Abc/Foundation.h>
-
-#include <vector>
-
-typedef Alembic::Abc::V3f FEMFloatPoint;
-typedef Alembic::Abc::Box3d FEMBoundingBox;
-template<typename T> using FEMList = std::vector<T>;
-typedef FEMList<FEMObjectData *> FEMFrameData;
-
 class FEMSolver : public MPxNode {
 public:
     static MObject enableObject;
@@ -61,9 +52,6 @@ public:
     static MObject gravityZObject;
     static MObject gravityObject;
     static MObject maximumIterationsObject;
-    static MObject useDiskCacheObject;
-    static MObject cacheNameObject;
-    static MObject directoryObject;
     static MObject currentStateObject;
     static MObject outputStateObject;
 
@@ -82,10 +70,7 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    static MString cacheFilename(const MString &, const MString &, unsigned int);
-
     void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
-    bool exportFrame(const FEMFrameData &, const MString &);
 };
 
 #endif

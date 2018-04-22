@@ -30,15 +30,10 @@
 #include <femMesh.h>
 #include <femObject.h>
 #include <femSolver.h>
-#include <femDebug.h>
-#include <ftNumber.h>
-#include <ftSolver.h>
-#include <ftConvert.h>
 
 #include <maya/MGlobal.h>
 #include <maya/MAnimControl.h>
 #include <maya/MFnPlugin.h>
-#include <maya/MCommonSystemUtils.h>
 #include <maya/MTime.h>
 
 #include <nglib.h>
@@ -71,29 +66,10 @@ MStatus FEMPlugin::initialize(MObject & object, const MString & author, const MS
         FEMSolver::creator, FEMSolver::initialize);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    status = plugin.registerNode(FEMDebug::typeName, FEMDebug::id,
-        FEMDebug::creator, FEMDebug::initialize);
+    status = MGlobal::executeCommand("initializeFEM");
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    status = plugin.registerNode(FTNumber::typeName, FTNumber::id,
-        FTNumber::creator, FTNumber::initialize);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    status = plugin.registerNode(FTSolver::typeName, FTSolver::id,
-        FTSolver::creator, FTSolver::initialize);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    status = plugin.registerNode(FTConvert::typeName, FTConvert::id,
-        FTConvert::creator, FTConvert::initialize);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    status = plugin.registerUI("femCreateUI", "femDeleteUI");
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    status = MGlobal::executeCommand("workspace -fileRule \"femCache\" \"cache/FEM\"");
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    return MCommonSystemUtils::makeDirectory(getCacheDirectory());
+    return plugin.registerUI("femCreateUI", "femDeleteUI");
 }
 MStatus FEMPlugin::uninitialize(MObject & object) {
     openvdb::uninitialize();
@@ -110,32 +86,33 @@ MStatus FEMPlugin::uninitialize(MObject & object) {
     status = plugin.deregisterNode(FEMSolver::id);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    status = plugin.deregisterNode(FEMDebug::id);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
     status = plugin.deregisterData(FEMObjectData::id);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    return MGlobal::executeCommand("workspace -removeFileRuleEntry \"femCache\"");
+    return MGlobal::executeCommand("deinitializeFEM");
 }
 
-double FEMPlugin::getStartTime() {
-    return MAnimControl::minTime().value();
+MTime FEMPlugin::getStartTime() {
+    return MAnimControl::minTime();
 }
-double FEMPlugin::getEndTime() {
-    return MAnimControl::maxTime().value();
+MTime FEMPlugin::getEndTime() {
+    return MAnimControl::maxTime();
+}
+MTime FEMPlugin::getCurrentTime() {
+    return MAnimControl::currentTime();
 }
 double FEMPlugin::getFramerate() {
     return MTime(1.0, MTime::kSeconds).as(MTime::uiUnit());
 }
-MString FEMPlugin::getCacheName() {
-    return MString("defaultCache");
-}
-MString FEMPlugin::getCacheDirectory() {
-    MString fileRule, cacheDirectory;
+MString FEMPlugin::getDefaultCacheName() {
+    MString cacheName;
+    MGlobal::executeCommand("getFEMDefaultCacheName", cacheName);
 
-    MGlobal::executeCommand("workspace -fileRuleEntry \"femCache\"", fileRule);
-    MGlobal::executeCommand("workspace -expandName \"" + fileRule + "\"", cacheDirectory);
+    return cacheName;
+}
+MString FEMPlugin::getDefaultCacheDirectory() {
+    MString cacheDirectory;
+    MGlobal::executeCommand("getFEMDefaultCacheDirectory", cacheDirectory);
 
     return cacheDirectory;
 }

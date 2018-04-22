@@ -26,6 +26,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 global proc menu_FEM() {
+    global string $globalFEMHelpTag;
+
     menuItem -divider true -dividerLabel "Create";
 
     menuItem -label "Active FEM Object" -command "createFEMObject false";
@@ -34,4 +36,16 @@ global proc menu_FEM() {
     menuItem -divider true -dividerLabel "Delete";
 
     menuItem -label "Delete FEM System" -command "deleteFEMSystem";
+    
+    menuItem -divider true -dividerLabel "Cache";
+
+    menuItem -label "Import FEM Cache" -command "importFEMCache";
+    menuItem -optionBox true -command "importFEMCacheOptions";
+
+    menuItem -label "Export FEM Cache" -command "exportFEMCache";
+    menuItem -optionBox true -command "exportFEMCacheOptions";
+
+    menuItem -divider true -dividerLabel "Help";
+
+    menuItem -label "About FEM Plugin" -command ("showHelp " + $globalFEMHelpTag);
 }
