@@ -39,6 +39,7 @@
 #include <maya/MTime.h>
 
 MObject FEMSolver::enableObject;
+MObject FEMSolver::groundPlaneObject;
 MObject FEMSolver::startTimeObject;
 MObject FEMSolver::currentTimeObject;
 MObject FEMSolver::substepsObject;
@@ -65,6 +66,10 @@ MStatus FEMSolver::initialize() {
     MFnTypedAttribute typedAttribute;
 
     enableObject = numericAttribute.create("enable", "e", MFnNumericData::kBoolean, true);
+    numericAttribute.setStorable(true);
+    numericAttribute.setKeyable(true);
+
+    groundPlaneObject = numericAttribute.create("groundPlane", "gp", MFnNumericData::kBoolean, true);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -116,6 +121,7 @@ MStatus FEMSolver::initialize() {
     typedAttribute.setUsesArrayDataBuilder(true);
 
     addAttribute(enableObject);
+    addAttribute(groundPlaneObject);
     addAttribute(startTimeObject);
     addAttribute(currentTimeObject);
     addAttribute(substepsObject);
@@ -174,6 +180,9 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     if (currentTime < startTime)
         return MS::kFailure;
 
+    MDataHandle groundPlaneHandle = data.inputValue(groundPlaneObject);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
     MDataHandle substepsHandle = data.inputValue(substepsObject);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -189,6 +198,7 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     MArrayDataHandle outputStateArrayHandle = data.outputArrayValue(outputStateObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
+    bool groundPlane = groundPlaneHandle.asBool();
     int substeps = substepsHandle.asInt();
     MVector gravity = gravityHandle.asVector();
 
@@ -197,12 +207,12 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     int steps = substeps + 1;
     double timestep = 1.0 / (steps * FEMPlugin::getFramerate());
 
-    unsigned int objectCount = currentStateArrayHandle.elementCount();
-    MArrayDataBuilder arrayDataBuilder(outputStateArrayHandle.builder());
+    FEMFrameData frameData;
+    frameData.reserve(currentStateArrayHandle.elementCount());
 
     computation.beginComputation();
 
-    for (unsigned int i = 0; i < objectCount; i++) {
+    do {
         if (computation.isInterruptRequested()) {
             computation.endComputation();
             return MS::kFailure;
@@ -211,28 +221,41 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
         MDataHandle currentStateHandle = currentStateArrayHandle.inputValue(&status);
         CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        MDataHandle outputStateHandle = arrayDataBuilder.addElement(i, &status);
-        CHECK_MSTATUS_AND_RETURN_IT(status);
-
         FEMObjectData * objectData = (FEMObjectData *)currentStateHandle.asPluginData();
 
         if (objectData == nullptr)
             return MS::kFailure;
 
-        if (objectData->isEnable()) {
-            for (int s = 0; s < steps; s++) {
+        frameData.push_back(objectData);
+    } while (currentStateArrayHandle.next() == MS::kSuccess);
+
+    for (int s = 0; s < steps; s++) {
+        for (FEMObjectData * objectData : frameData) {
+            if (objectData->isEnable() && !objectData->isPassive()) {
                 if (computation.isInterruptRequested()) {
                     computation.endComputation();
                     return MS::kFailure;
                 }
 
-                if (!objectData->isPassive())
-                    simulateSubstep(objectData, gravity, timestep, maximumIterations);
+                simulateSubstep(objectData, gravity, timestep, maximumIterations);
             }
         }
 
-        outputStateHandle.set(objectData);
-        currentStateArrayHandle.next();
+        computeCollisionResponse(frameData, groundPlane);
+    }
+
+    MArrayDataBuilder arrayDataBuilder(outputStateArrayHandle.builder());
+
+    for (unsigned int i = 0; i < frameData.size(); i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
+        MDataHandle outputStateHandle = arrayDataBuilder.addElement(i, &status);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
+
+        outputStateHandle.set(frameData[i]);
     }
 
     outputStateArrayHandle.set(arrayDataBuilder);
@@ -255,3 +278,5 @@ void FEMSolver::simulateSubstep(FEMObjectData * objectData,
 
     opentissue::fem::clear_external_forces(*tetrahedralMesh);
 }
+void FEMSolver::computeCollisionResponse(FEMFrameData & frameData,
+    bool groundPlane) const {}

@@ -12,7 +12,6 @@ Plugin requires the latest version of the following packages:
 * [OpenTissue](http://www.opentissue.org)
 * [Maya API](https://www.autodesk.com/maya)
 * [Bullet](http://bulletphysics.org)
-* [Alembic](http://www.alembic.io) (IlmBase)
 * [OpenVDB](http://www.openvdb.org) (Boost, Threading Building Blocks, IlmBase and zlib)
 * [Netgen](https://ngsolve.org)
 * [Threading Building Blocks](https://www.threadingbuildingblocks.org)

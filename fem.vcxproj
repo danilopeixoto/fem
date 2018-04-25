@@ -11,6 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <None Include="LICENSE" />
+    <None Include="README.md" />
     <None Include="res\icons\activeFEMObject.svg" />
     <None Include="res\icons\deleteFEMSystem.svg" />
     <None Include="res\icons\exportFEMCache.svg" />

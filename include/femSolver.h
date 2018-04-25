@@ -41,9 +41,14 @@
 #include <maya/MVector.h>
 #include <maya/MComputation.h>
 
+#include <vector>
+
+typedef std::vector<FEMObjectData *> FEMFrameData;
+
 class FEMSolver : public MPxNode {
 public:
     static MObject enableObject;
+    static MObject groundPlaneObject;
     static MObject startTimeObject;
     static MObject currentTimeObject;
     static MObject substepsObject;
@@ -71,6 +76,7 @@ public:
 
 private:
     void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
+    void computeCollisionResponse(FEMFrameData &, bool) const;
 };
 
 #endif
