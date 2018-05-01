@@ -81,7 +81,9 @@ const MTypeId FEMObjectData::id(0x00128580);
 const MString FEMObjectData::typeName("femObjectData");
 
 FEMObjectData::FEMObjectData() {
-    allocate();
+    tetrahedralMesh = std::make_shared<FEMTetrahedralMesh>();
+    surfaceNodes = std::make_shared<MIntArray>();
+    collisionObject = std::make_shared<FEMCollisionObject>();
 
     enable = true;
     passive = false;
@@ -91,12 +93,9 @@ FEMObjectData::FEMObjectData() {
     friction = 0.5;
 }
 FEMObjectData::FEMObjectData(const MPxData & source) {
-    allocate();
     copy(source);
 }
-FEMObjectData::~FEMObjectData() {
-    deallocate();
-}
+FEMObjectData::~FEMObjectData() {}
 
 MTypeId FEMObjectData::typeId() const {
     return id;
@@ -112,8 +111,9 @@ void FEMObjectData::copy(const MPxData & source) {
     const FEMObjectData & objectData = (const FEMObjectData &)source;
 
     if (this != &objectData) {
-        *tetrahedralMesh = *objectData.getTetrahedralMesh();
-        surfaceNodes->copy(*objectData.getSurfaceNodes());
+        tetrahedralMesh = objectData.getTetrahedralMesh();
+        surfaceNodes = objectData.getSurfaceNodes();
+        collisionObject = objectData.getCollisionObject();
 
         enable = objectData.isEnable();
         passive = objectData.isPassive();
@@ -124,34 +124,10 @@ void FEMObjectData::copy(const MPxData & source) {
     }
 }
 
-MStatus FEMObjectData::readASCII(const MArgList & argumentList, unsigned int & index) {
-    return MS::kSuccess;
-}
-MStatus FEMObjectData::readBinary(std::istream & istream, unsigned int length) {
-    return MS::kSuccess;
-}
-MStatus FEMObjectData::writeASCII(std::ostream & ostream) {
-    ostream << enable << ' ' << passive << ' ' << tetrahedralMesh->size_tetrahedra();
-
-    return ostream.fail() ? MS::kFailure : MS::kSuccess;
-}
-MStatus FEMObjectData::writeBinary(std::ostream & ostream) {
-    ostream.write((const char *)&enable, sizeof(bool));
-
-    if (!ostream.fail())
-        ostream.write((const char *)&passive, sizeof(bool));
-
-    if (!ostream.fail()) {
-        size_t elementCount = tetrahedralMesh->size_tetrahedra();
-        ostream.write((const char *)&elementCount, sizeof(size_t));
-    }
-
-    return ostream.fail() ? MS::kFailure : MS::kSuccess;
-}
-
 FEMObjectData & FEMObjectData::reset() {
-    deallocate();
-    allocate();
+    tetrahedralMesh.reset();
+    surfaceNodes.reset();
+    collisionObject.reset();
 
     enable = true;
     passive = false;
@@ -164,6 +140,10 @@ FEMObjectData & FEMObjectData::reset() {
 }
 
 FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
+    tetrahedralMesh->clear();
+    surfaceNodes->clear();
+    collisionObject->deleteShape();
+
     enable = parameters.enable;
     passive = parameters.passive;
 
@@ -192,6 +172,9 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
         tetrahedralMesh->insert(arrayData[i * 4], arrayData[i * 4 + 1],
             arrayData[i * 4 + 2], arrayData[i * 4 + 3]);
     }
+
+    collisionObject->createShape(tetrahedralMesh.get(), surfaceNodes.get());
+    collisionObject->setFriction(friction);
 
     if (passive)
         opentissue::fem::set_fixed(*tetrahedralMesh, true);
@@ -237,17 +220,23 @@ FEMObjectData & FEMObjectData::update(FEMParameters & parameters, const MPxData 
     return *this;
 }
 
-FEMTetrahedralMesh * FEMObjectData::getTetrahedralMesh() {
+FEMTetrahedralMeshSharedPointer FEMObjectData::getTetrahedralMesh() {
     return tetrahedralMesh;
 }
-const FEMTetrahedralMesh * FEMObjectData::getTetrahedralMesh() const {
+const FEMTetrahedralMeshSharedPointer FEMObjectData::getTetrahedralMesh() const {
     return tetrahedralMesh;
 }
-MIntArray * FEMObjectData::getSurfaceNodes() {
+FEMIntegerArraySharedPointer FEMObjectData::getSurfaceNodes() {
     return surfaceNodes;
 }
-const MIntArray * FEMObjectData::getSurfaceNodes() const {
+const FEMIntegerArraySharedPointer FEMObjectData::getSurfaceNodes() const {
     return surfaceNodes;
+}
+FEMCollisionObjectSharedPointer FEMObjectData::getCollisionObject() {
+    return collisionObject;
+}
+const FEMCollisionObjectSharedPointer FEMObjectData::getCollisionObject() const {
+    return collisionObject;
 }
 
 bool FEMObjectData::isEnable() const {
@@ -265,20 +254,4 @@ double FEMObjectData::getStiffnessDamping() const {
 }
 double FEMObjectData::getFriction() const {
     return friction;
-}
-
-FEMObjectData & FEMObjectData::allocate() {
-    tetrahedralMesh = new FEMTetrahedralMesh();
-    surfaceNodes = new MIntArray();
-
-    return *this;
-}
-FEMObjectData & FEMObjectData::deallocate() {
-    if (tetrahedralMesh != nullptr)
-        delete tetrahedralMesh;
-
-    if (surfaceNodes != nullptr)
-        delete surfaceNodes;
-
-    return *this;
 }

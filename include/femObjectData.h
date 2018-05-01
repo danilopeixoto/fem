@@ -28,6 +28,8 @@
 #ifndef FEM_OBJECT_DATA
 #define FEM_OBJECT_DATA
 
+#include <femCollisionWorld.h>
+
 #include <maya/MPxData.h>
 #include <maya/MTypeId.h>
 #include <maya/MString.h>
@@ -37,14 +39,13 @@
 #include <maya/MIntArray.h>
 #include <maya/MArgList.h>
 
-#include <opentissue/math/math.h>
-#include <opentissue/fem/fem.h>
+#include <BulletCollision/CollisionDispatch/btCollisionObject.h>
 
-#include <iostream>
+#include <memory>
 
-typedef opentissue::math::Types<double, unsigned int> FEMMathTypes;
-typedef FEMMathTypes::vector_type FEMVector;
-typedef opentissue::fem::Mesh<FEMMathTypes> FEMTetrahedralMesh;
+typedef std::shared_ptr<FEMTetrahedralMesh> FEMTetrahedralMeshSharedPointer;
+typedef std::shared_ptr<MIntArray> FEMIntegerArraySharedPointer;
+typedef std::shared_ptr<FEMCollisionObject> FEMCollisionObjectSharedPointer;
 
 struct FEMParameters {
     bool enable;
@@ -91,20 +92,17 @@ public:
     static void * creator();
     virtual	void copy(const MPxData &);
 
-    virtual MStatus readASCII(const MArgList &, unsigned int &);
-    virtual MStatus readBinary(std::istream &, unsigned int);
-    virtual MStatus writeASCII(std::ostream &);
-    virtual MStatus writeBinary(std::ostream &);
-
     FEMObjectData & reset();
 
     FEMObjectData & initialize(FEMParameters &);
     FEMObjectData & update(FEMParameters &, const MPxData &);
 
-    FEMTetrahedralMesh * getTetrahedralMesh();
-    const FEMTetrahedralMesh * getTetrahedralMesh() const;
-    MIntArray * getSurfaceNodes();
-    const MIntArray * getSurfaceNodes() const;
+    FEMTetrahedralMeshSharedPointer getTetrahedralMesh();
+    const FEMTetrahedralMeshSharedPointer getTetrahedralMesh() const;
+    FEMIntegerArraySharedPointer getSurfaceNodes();
+    const FEMIntegerArraySharedPointer getSurfaceNodes() const;
+    FEMCollisionObjectSharedPointer getCollisionObject();
+    const FEMCollisionObjectSharedPointer getCollisionObject() const;
 
     bool isEnable() const;
     bool isPassive() const;
@@ -114,8 +112,9 @@ public:
     double getFriction() const;
 
 private:
-    FEMTetrahedralMesh * tetrahedralMesh;
-    MIntArray * surfaceNodes;
+    FEMTetrahedralMeshSharedPointer tetrahedralMesh;
+    FEMIntegerArraySharedPointer surfaceNodes;
+    FEMCollisionObjectSharedPointer collisionObject;
 
     bool enable;
     bool passive;
@@ -123,9 +122,6 @@ private:
     double massDamping;
     double stiffnessDamping;
     double friction;
-
-    FEMObjectData & allocate();
-    FEMObjectData & deallocate();
 };
 
 #endif

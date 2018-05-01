@@ -38,8 +38,14 @@
 #include <maya/MArrayDataBuilder.h>
 #include <maya/MTime.h>
 
+#include <opentissue/fem/fem.h>
+
+#include <LinearMath/btMinMax.h>
+#include <BulletCollision/BroadphaseCollision/btDbvt.h>
+#include <BulletCollision/NarrowPhaseCollision/btPersistentManifold.h>
+#include <BulletCollision/NarrowPhaseCollision/btManifoldPoint.h>
+
 MObject FEMSolver::enableObject;
-MObject FEMSolver::groundPlaneObject;
 MObject FEMSolver::startTimeObject;
 MObject FEMSolver::currentTimeObject;
 MObject FEMSolver::substepsObject;
@@ -54,7 +60,9 @@ MObject FEMSolver::outputStateObject;
 const MTypeId FEMSolver::id(0x00128583);
 const MString FEMSolver::typeName("femSolver");
 
-FEMSolver::FEMSolver() {}
+FEMSolver::FEMSolver() {
+    collisionWorld = std::make_shared<FEMCollisionWorld>();
+}
 FEMSolver::~FEMSolver() {}
 
 void * FEMSolver::creator() {
@@ -66,10 +74,6 @@ MStatus FEMSolver::initialize() {
     MFnTypedAttribute typedAttribute;
 
     enableObject = numericAttribute.create("enable", "e", MFnNumericData::kBoolean, true);
-    numericAttribute.setStorable(true);
-    numericAttribute.setKeyable(true);
-
-    groundPlaneObject = numericAttribute.create("groundPlane", "gp", MFnNumericData::kBoolean, true);
     numericAttribute.setStorable(true);
     numericAttribute.setKeyable(true);
 
@@ -121,7 +125,6 @@ MStatus FEMSolver::initialize() {
     typedAttribute.setUsesArrayDataBuilder(true);
 
     addAttribute(enableObject);
-    addAttribute(groundPlaneObject);
     addAttribute(startTimeObject);
     addAttribute(currentTimeObject);
     addAttribute(substepsObject);
@@ -180,9 +183,6 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     if (currentTime < startTime)
         return MS::kFailure;
 
-    MDataHandle groundPlaneHandle = data.inputValue(groundPlaneObject);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
     MDataHandle substepsHandle = data.inputValue(substepsObject);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -198,7 +198,6 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     MArrayDataHandle outputStateArrayHandle = data.outputArrayValue(outputStateObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    bool groundPlane = groundPlaneHandle.asBool();
     int substeps = substepsHandle.asInt();
     MVector gravity = gravityHandle.asVector();
 
@@ -230,18 +229,9 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     } while (currentStateArrayHandle.next() == MS::kSuccess);
 
     for (int s = 0; s < steps; s++) {
-        for (FEMObjectData * objectData : frameData) {
-            if (objectData->isEnable() && !objectData->isPassive()) {
-                if (computation.isInterruptRequested()) {
-                    computation.endComputation();
-                    return MS::kFailure;
-                }
-
-                simulateSubstep(objectData, gravity, timestep, maximumIterations);
-            }
-        }
-
-        computeCollisionResponse(frameData, groundPlane);
+        collisionWorld->performDiscreteCollisionDetection();
+        performCollisionResponse(frameData);
+        simulateTimestep(frameData, gravity, timestep, maximumIterations);
     }
 
     MArrayDataBuilder arrayDataBuilder(outputStateArrayHandle.builder());
@@ -266,17 +256,161 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     return MS::kSuccess;
 }
 
-void FEMSolver::simulateSubstep(FEMObjectData * objectData,
-    const MVector & gravity, double timestep, int maxIterations) const {
-    FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
+btVector3 FEMSolver::computeImpulse(
+    const btVector3 & relativeVelocity, const btVector3 & normal,
+    double friction, double inverseMass0, double inverseMass1,
+    const btVector3 & distance0, const btVector3 & distance1,
+    const btMatrix3x3 & inverseInertiaTensor0, const btMatrix3x3 & inverseInertiaTensor1) {
+    double inverseMassSum = inverseMass0 + inverseMass1;
+    double relativeVelocityDotNormal = relativeVelocity.dot(normal);
 
-    opentissue::fem::apply_acceleration(*tetrahedralMesh,
-        FEMVector(gravity.x, gravity.y, gravity.z));
+    double normalImpulseMagnitude = -relativeVelocityDotNormal /
+        (inverseMassSum + ((inverseInertiaTensor0 * distance0.cross(normal)).cross(distance0) +
+        (inverseInertiaTensor1 * distance1.cross(normal)).cross(distance1)).dot(normal));
 
-    opentissue::fem::simulate(*tetrahedralMesh, objectData->getMassDamping(),
-        objectData->getStiffnessDamping(), timestep, maxIterations);
+    btVector3 normalImpulse = normalImpulseMagnitude * normal;
 
-    opentissue::fem::clear_external_forces(*tetrahedralMesh);
+    btVector3 tangent = relativeVelocity - relativeVelocityDotNormal * normal;
+    double tangentMagnitude = tangent.length();
+
+    if (tangentMagnitude > FEM_EPSILON) {
+        tangent /= tangentMagnitude;
+
+        double frictionImpulseMagnitude = -relativeVelocity.dot(tangent) /
+            (inverseMassSum +
+            ((inverseInertiaTensor0 * distance0.cross(tangent)).cross(distance0) +
+                (inverseInertiaTensor1 * distance1.cross(tangent)).cross(distance1)).dot(tangent));
+
+        double scaledNormalImpulseMagnitude = normalImpulseMagnitude * friction;
+        btClamp(frictionImpulseMagnitude, -scaledNormalImpulseMagnitude, scaledNormalImpulseMagnitude);
+
+        return normalImpulse + frictionImpulseMagnitude * tangent;
+    }
+
+    return normalImpulse;
 }
-void FEMSolver::computeCollisionResponse(FEMFrameData & frameData,
-    bool groundPlane) const {}
+
+void FEMSolver::performCollisionResponse(FEMFrameData & frameData) {
+    int manifoldCount = collisionWorld->getDispatcher()->getNumManifolds();
+
+    for (int i = 0; i < manifoldCount; i++) {
+        btPersistentManifold * contactManifold =
+            collisionWorld->getDispatcher()->getManifoldByIndexInternal(i);
+
+        FEMCollisionObject * collisionObject0 = (FEMCollisionObject *)contactManifold->getBody0();
+        FEMCollisionObject * collisionObject1 = (FEMCollisionObject *)contactManifold->getBody1();
+
+        FEMCollisionShape * collisionShape0 = (FEMCollisionShape *)collisionObject0->getCollisionShape();
+        FEMCollisionShape * collisionShape1 = (FEMCollisionShape *)collisionObject1->getCollisionShape();
+
+        double contactFriction = 0.5 * (collisionObject0->getFriction() +
+            collisionObject1->getFriction());
+
+        int contactCount = contactManifold->getNumContacts();
+
+        for (int j = 0; j < contactCount; j++) {
+            btManifoldPoint & contactPoint = contactManifold->getContactPoint(j);
+
+            if (contactPoint.getDistance() < 0) {
+                FEMTriangleShape * triangle0 =
+                    (FEMTriangleShape *)collisionShape0->getChildShape(contactPoint.m_index0);
+                FEMTriangleShape * triangle1 =
+                    (FEMTriangleShape *)collisionShape1->getChildShape(contactPoint.m_index1);
+
+                double & mass00 = triangle0->getNode(0)->m_mass;
+                double & mass01 = triangle0->getNode(1)->m_mass;
+                double & mass02 = triangle0->getNode(2)->m_mass;
+
+                double & mass10 = triangle1->getNode(0)->m_mass;
+                double & mass11 = triangle1->getNode(1)->m_mass;
+                double & mass12 = triangle1->getNode(2)->m_mass;
+
+                FEMVector & velocity00 = triangle0->getNode(0)->m_velocity;
+                FEMVector & velocity01 = triangle0->getNode(1)->m_velocity;
+                FEMVector & velocity02 = triangle0->getNode(2)->m_velocity;
+
+                FEMVector & velocity10 = triangle1->getNode(0)->m_velocity;
+                FEMVector & velocity11 = triangle1->getNode(1)->m_velocity;
+                FEMVector & velocity12 = triangle1->getNode(2)->m_velocity;
+
+                btVector3 barycentric[2];
+                triangle0->calculateBarycentric(contactPoint.getPositionWorldOnA(), barycentric[0]);
+                triangle1->calculateBarycentric(contactPoint.getPositionWorldOnB(), barycentric[1]);
+
+                btScalar inverseMass0 = barycentric[0].dot(
+                    btVector3(1.0 / mass00, 1.0 / mass01, 1.0 / mass02));
+                btScalar inverseMass1 = barycentric[1].dot(
+                    btVector3(1.0 / mass10, 1.0 / mass11, 1.0 / mass12));
+
+                btMatrix3x3 velocity0(
+                    velocity00[0], velocity01[0], velocity02[0],
+                    velocity00[1], velocity01[1], velocity02[1],
+                    velocity00[2], velocity01[2], velocity02[2]);
+
+                btMatrix3x3 velocity1(
+                    velocity10[0], velocity11[0], velocity12[0],
+                    velocity10[1], velocity11[1], velocity12[1],
+                    velocity10[2], velocity11[2], velocity12[2]);
+
+                btMatrix3x3 inverseInertiaTensor[2];
+                triangle0->calculateInverseInertiaTensor(inverseInertiaTensor[0]);
+                triangle1->calculateInverseInertiaTensor(inverseInertiaTensor[1]);
+
+                btVector3 distanceVector0 = contactPoint.getPositionWorldOnA() -
+                    collisionShape0->getDynamicAabbTree()->m_root->volume.Center();
+                btVector3 distanceVector1 = contactPoint.getPositionWorldOnB() -
+                    collisionShape1->getDynamicAabbTree()->m_root->volume.Center();
+
+                btVector3 relativeVelocity = velocity1 * barycentric[1] - velocity0 * barycentric[0];
+
+                btVector3 impulse = computeImpulse(relativeVelocity,
+                    contactPoint.m_normalWorldOnB, contactFriction,
+                    inverseMass0, inverseMass1,
+                    distanceVector0, distanceVector1,
+                    inverseInertiaTensor[0], inverseInertiaTensor[1]);
+
+                velocity0 -= FEMOuterProduct(impulse / inverseMass0, barycentric[0]);
+                velocity1 += FEMOuterProduct(impulse / inverseMass1, barycentric[1]);
+
+                velocity00[0] = velocity0[0][0];
+                velocity00[1] = velocity0[1][0];
+                velocity00[2] = velocity0[2][0];
+
+                velocity01[0] = velocity0[0][1];
+                velocity01[1] = velocity0[1][1];
+                velocity01[2] = velocity0[2][1];
+
+                velocity02[0] = velocity0[0][2];
+                velocity02[1] = velocity0[1][2];
+                velocity02[2] = velocity0[2][2];
+
+                velocity10[0] = velocity1[0][0];
+                velocity10[1] = velocity1[1][0];
+                velocity10[2] = velocity1[2][0];
+
+                velocity11[0] = velocity1[0][1];
+                velocity11[1] = velocity1[1][1];
+                velocity11[2] = velocity1[2][1];
+
+                velocity12[0] = velocity1[0][2];
+                velocity12[1] = velocity1[1][2];
+                velocity12[2] = velocity1[2][2];
+            }
+        }
+    }
+}
+void FEMSolver::simulateTimestep(FEMFrameData & frameData, const MVector & gravity,
+    double timestep, int maximumIterations) {
+    for (unsigned int i = 0; i < frameData.size(); i++) {
+        FEMObjectData * objectData = frameData[i];
+        FEMTetrahedralMeshSharedPointer tetrahedralMesh = objectData->getTetrahedralMesh();
+
+        opentissue::fem::apply_acceleration(*tetrahedralMesh,
+            FEMVector(gravity.x, gravity.y, gravity.z));
+
+        opentissue::fem::simulate(*tetrahedralMesh, objectData->getMassDamping(),
+            objectData->getStiffnessDamping(), timestep, maximumIterations);
+
+        opentissue::fem::clear_external_forces(*tetrahedralMesh);
+    }
+}

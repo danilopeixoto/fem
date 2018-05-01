@@ -111,10 +111,10 @@ DLL_HEADER void AddVolumeElement(Mesh * mesh, int * indices);
 // Returns the point coordinates at a given index.
 DLL_HEADER void GetPoint(Mesh * mesh, int index, double * point);
 
-// Returns volume element at a given index.
+// Returns surface element at a given index.
 DLL_HEADER void GetSurfaceElement(Mesh * mesh, int index, int * indices);
 
-// Returns surface element at a given index.
+// Returns volume element at a given index.
 DLL_HEADER void GetVolumeElement(Mesh * mesh, int index, int * indices);
 
 // Apply a global restriction on mesh element size.

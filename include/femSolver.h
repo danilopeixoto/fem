@@ -29,6 +29,7 @@
 #define FEM_SOLVER
 
 #include <femObjectData.h>
+#include <femCollisionWorld.h>
 
 #include <maya/MPxNode.h>
 #include <maya/MObject.h>
@@ -41,14 +42,20 @@
 #include <maya/MVector.h>
 #include <maya/MComputation.h>
 
+#include <LinearMath/btVector3.h>
+#include <LinearMath/btMatrix3x3.h>
+
 #include <vector>
+#include <memory>
+
+#define FEM_EPSILON 1.0e-6
 
 typedef std::vector<FEMObjectData *> FEMFrameData;
+typedef std::shared_ptr<FEMCollisionWorld> FEMCollisionWorldSharedPointer;
 
 class FEMSolver : public MPxNode {
 public:
     static MObject enableObject;
-    static MObject groundPlaneObject;
     static MObject startTimeObject;
     static MObject currentTimeObject;
     static MObject substepsObject;
@@ -75,8 +82,16 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    void simulateSubstep(FEMObjectData *, const MVector &, double, int) const;
-    void computeCollisionResponse(FEMFrameData &, bool) const;
+    FEMCollisionWorldSharedPointer collisionWorld;
+
+    btVector3 computeImpulse(
+        const btVector3 &, const btVector3 &,
+        double, double, double,
+        const btVector3 &, const btVector3 &,
+        const btMatrix3x3 &, const btMatrix3x3 &);
+
+    void performCollisionResponse(FEMFrameData &);
+    void simulateTimestep(FEMFrameData &, const MVector &, double, int);
 };
 
 #endif

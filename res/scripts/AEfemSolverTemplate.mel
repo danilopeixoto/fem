@@ -43,7 +43,6 @@ global proc AEfemSolverTemplate(string $nodeName) {
 
     editorTemplate -beginLayout "Simulation Attributes" -collapse false;
 
-    editorTemplate -addControl "groundPlane";
     editorTemplate -addControl "startTime";
     editorTemplate -addControl "substeps";
     editorTemplate -addControl "gravity";

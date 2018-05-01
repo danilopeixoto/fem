@@ -39,6 +39,8 @@
 #include <maya/MPlugArray.h>
 #include <maya/MDataBlock.h>
 
+#define FEM_COMPARE_ATTR(attribute) (plug == attribute)
+
 class FEMObject : public MPxNode {
 public:
     static MObject enableObject;
@@ -85,7 +87,7 @@ private:
     bool updateInitialData;
     FEMParameters parameters;
 
-    void updateOutputMesh(const FEMObjectData *, MObject &) const;
+    void updateOutputMesh(const FEMObjectData *, MObject &);
 };
 
 #endif

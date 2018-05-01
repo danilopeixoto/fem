@@ -41,8 +41,6 @@
 #include <maya/MIntArray.h>
 #include <maya/MPointArray.h>
 
-#define FEM_COMPARE_ATTR(attribute) (plug == attribute)
-
 MObject FEMObject::enableObject;
 MObject FEMObject::passiveObject;
 MObject FEMObject::densityObject;
@@ -261,7 +259,7 @@ MStatus	FEMObject::setDependentsDirty(const MPlug & plug, MPlugArray & plugArray
         || FEM_COMPARE_ATTR(volumeNodesObject) || FEM_COMPARE_ATTR(matrixObject))
         parameters.updateMesh = true;
 
-    if (updateInitialData && (parameters.updateParameters || parameters.updateMesh)) {
+    if (updateInitialData && parameters.updateMesh) {
         MObject nodeObject(thisMObject());
 
         MPlug currentStatePlug(nodeObject, currentStateObject);
@@ -420,10 +418,9 @@ MStatus FEMObject::compute(const MPlug & plug, MDataBlock & data) {
     return MS::kSuccess;
 }
 
-void FEMObject::updateOutputMesh(const FEMObjectData * objectData,
-    MObject & meshObject) const {
-    const MIntArray * surfaceNodes = objectData->getSurfaceNodes();
-    const FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
+void FEMObject::updateOutputMesh(const FEMObjectData * objectData, MObject & meshObject) {
+    const FEMTetrahedralMeshSharedPointer tetrahedralMesh = objectData->getTetrahedralMesh();
+    const FEMIntegerArraySharedPointer surfaceNodes = objectData->getSurfaceNodes();
 
     int pointCount = (int)tetrahedralMesh->size_nodes();
     int surfaceCount = surfaceNodes->length() / 3;
