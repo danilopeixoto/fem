@@ -10,6 +10,7 @@
 
 #include <opentissue/configuration.h>
 
+#include <opentissue/fem/compute_centroid.h>
 #include <opentissue/fem/compute_volume.h>
 #include <opentissue/math/math.h>
 
@@ -33,9 +34,13 @@ namespace opentissue {
                     vector_type const &n2 = tet->m_B[2];
                     vector_type const &n3 = tet->m_B[3];
 
-                    vector_type e10 = tet->j()->m_world_coord - tet->i()->m_world_coord;
-                    vector_type e20 = tet->k()->m_world_coord - tet->i()->m_world_coord;
-                    vector_type e30 = tet->m()->m_world_coord - tet->i()->m_world_coord;
+                    vector_type &e10 = tet->m_e10;
+                    vector_type &e20 = tet->m_e20;
+                    vector_type &e30 = tet->m_e30;
+
+                    e10 = tet->j()->m_world_coord - tet->i()->m_world_coord;
+                    e20 = tet->k()->m_world_coord - tet->i()->m_world_coord;
+                    e30 = tet->m()->m_world_coord - tet->i()->m_world_coord;
 
                     matrix_type &Re = tet->m_Re;
 
@@ -49,9 +54,10 @@ namespace opentissue {
                     Re(2, 1) = e10(2) * n1(1) + e20(2) * n2(1) + e30(2) * n3(1);
                     Re(2, 2) = e10(2) * n1(2) + e20(2) * n2(2) + e30(2) * n3(2);
 
-                    real_type volume = compute_volume(e10, e20, e30);
+                    tet->m_volume = compute_volume(e10, e20, e30);
+                    compute_centroid(tet);
 
-                    if (volume < value_traits::epsilon()) {
+                    if (tet->m_volume < value_traits::epsilon()) {
                         Re(0, 0) = value_traits::one();
                         Re(0, 1) = value_traits::zero();
                         Re(0, 2) = value_traits::zero();
@@ -62,7 +68,7 @@ namespace opentissue {
                         Re(2, 1) = value_traits::zero();
                         Re(2, 2) = value_traits::one();
                     }
-                    else if (volume < 0.06 * tet->m_volume)
+                    else if (tet->m_volume < 0.06 * tet->m_volume0)
                         math::orthonormalize(Re);
                     else {
                         matrix_type U, P;

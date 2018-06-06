@@ -28,7 +28,7 @@ namespace opentissue {
 
                 E(0) = (1.0 - poisson) * scale;
                 E(1) = poisson * scale;
-                E(2) = young / (2.0 + poisson2);
+                E(2) = (0.5 - poisson) * scale;
             }
         }
     }

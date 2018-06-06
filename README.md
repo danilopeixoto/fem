@@ -13,6 +13,7 @@ Plugin requires the latest version of the following packages:
 * [Maya API](https://www.autodesk.com/maya)
 * [Bullet](http://bulletphysics.org)
 * [OpenVDB](http://www.openvdb.org) (Boost, Threading Building Blocks, IlmBase and zlib)
+* [CGAL](https://www.cgal.org)
 * [Netgen](https://ngsolve.org)
 * [Threading Building Blocks](https://www.threadingbuildingblocks.org)
 

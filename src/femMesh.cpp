@@ -43,24 +43,32 @@
 #include <cmath>
 #include <functional>
 
-FEMTriangleHash::FEMTriangleHash() {}
-FEMTriangleHash::~FEMTriangleHash() {}
+FEMTriangleFace::FEMTriangleFace() {}
+FEMTriangleFace::FEMTriangleFace(unsigned int index0, unsigned int index1, unsigned int index2)
+    : index0(index0), index1(index1), index2(index2) {}
+FEMTriangleFace::FEMTriangleFace(unsigned int triangleIndex,
+    unsigned int index0, unsigned int index1, unsigned int index2)
+    : triangleIndex(triangleIndex), index0(index0), index1(index1), index2(index2) {}
+FEMTriangleFace::~FEMTriangleFace() {}
 
-size_t FEMTriangleHash::operator ()(const FEMTriangle & triangle) const {
-    size_t h0 = std::hash<FEMTriangle::ValueType>()(triangle[0]);
-    size_t h1 = std::hash<FEMTriangle::ValueType>()(triangle[1]);
-    size_t h2 = std::hash<FEMTriangle::ValueType>()(triangle[2]);
+FEMTriangleFaceHash::FEMTriangleFaceHash() {}
+FEMTriangleFaceHash::~FEMTriangleFaceHash() {}
+
+size_t FEMTriangleFaceHash::operator ()(const FEMTriangleFace & triangle) const {
+    size_t h0 = std::hash<unsigned int>()(triangle.index0);
+    size_t h1 = std::hash<unsigned int>()(triangle.index1);
+    size_t h2 = std::hash<unsigned int>()(triangle.index2);
 
     return (h0 ^ h1) ^ h2;
 }
 
-FEMTriangleEqual::FEMTriangleEqual() {}
-FEMTriangleEqual::~FEMTriangleEqual() {}
+FEMTriangleFaceEqual::FEMTriangleFaceEqual() {}
+FEMTriangleFaceEqual::~FEMTriangleFaceEqual() {}
 
-bool FEMTriangleEqual::operator ()(const FEMTriangle & lhs, const FEMTriangle & rhs) const {
-    bool t0 = lhs[0] == rhs[0] || lhs[0] == rhs[1] || lhs[0] == rhs[2];
-    bool t1 = lhs[1] == rhs[0] || lhs[1] == rhs[1] || lhs[1] == rhs[2];
-    bool t2 = lhs[2] == rhs[0] || lhs[2] == rhs[1] || lhs[2] == rhs[2];
+bool FEMTriangleFaceEqual::operator ()(const FEMTriangleFace & lhs, const FEMTriangleFace & rhs) const {
+    bool t0 = lhs.index0 == rhs.index0 || lhs.index0 == rhs.index1 || lhs.index0 == rhs.index2;
+    bool t1 = lhs.index1 == rhs.index0 || lhs.index1 == rhs.index1 || lhs.index1 == rhs.index2;
+    bool t2 = lhs.index2 == rhs.index0 || lhs.index2 == rhs.index1 || lhs.index2 == rhs.index2;
 
     return t0 && t1 && t2;
 }
@@ -119,6 +127,7 @@ MObject FEMMesh::inputMeshObject;
 MObject FEMMesh::outputMeshObject;
 MObject FEMMesh::surfaceNodesObject;
 MObject FEMMesh::volumeNodesObject;
+MObject FEMMesh::boundaryVolumesObject;
 
 const MTypeId FEMMesh::id(0x00128581);
 const MString FEMMesh::typeName("femMesh");
@@ -174,6 +183,10 @@ MStatus FEMMesh::initialize() {
     typedAttribute.setWritable(false);
     typedAttribute.setStorable(false);
 
+    boundaryVolumesObject = typedAttribute.create("boundaryVolumes", "bv", MFnIntArrayData::kIntArray);
+    typedAttribute.setWritable(false);
+    typedAttribute.setStorable(false);
+
     addAttribute(volumeElementScaleObject);
     addAttribute(useVoxelSizeObject);
     addAttribute(voxelSizeObject);
@@ -181,19 +194,24 @@ MStatus FEMMesh::initialize() {
     addAttribute(outputMeshObject);
     addAttribute(surfaceNodesObject);
     addAttribute(volumeNodesObject);
+    addAttribute(boundaryVolumesObject);
 
     attributeAffects(volumeElementScaleObject, outputMeshObject);
     attributeAffects(volumeElementScaleObject, surfaceNodesObject);
     attributeAffects(volumeElementScaleObject, volumeNodesObject);
+    attributeAffects(volumeElementScaleObject, boundaryVolumesObject);
     attributeAffects(useVoxelSizeObject, outputMeshObject);
     attributeAffects(useVoxelSizeObject, surfaceNodesObject);
     attributeAffects(useVoxelSizeObject, volumeNodesObject);
+    attributeAffects(useVoxelSizeObject, boundaryVolumesObject);
     attributeAffects(voxelSizeObject, outputMeshObject);
     attributeAffects(voxelSizeObject, surfaceNodesObject);
     attributeAffects(voxelSizeObject, volumeNodesObject);
+    attributeAffects(voxelSizeObject, boundaryVolumesObject);
     attributeAffects(inputMeshObject, outputMeshObject);
     attributeAffects(inputMeshObject, surfaceNodesObject);
     attributeAffects(inputMeshObject, volumeNodesObject);
+    attributeAffects(inputMeshObject, boundaryVolumesObject);
 
     return MS::kSuccess;
 }
@@ -219,6 +237,7 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
     MDataHandle outputMeshHandle = data.outputValue(outputMeshObject);
     MDataHandle surfaceNodesHandle = data.outputValue(surfaceNodesObject);
     MDataHandle volumeNodesHandle = data.outputValue(volumeNodesObject);
+    MDataHandle boundaryVolumesHandle = data.outputValue(boundaryVolumesObject);
 
     double volumeElementScale = volumeElementScaleHandle.asDouble();
 
@@ -231,9 +250,9 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
     if (meshObject.isNull())
         return MS::kFailure;
 
-    MIntArray surfaceNodes, volumeNodes;
+    MIntArray surfaceNodes, volumeNodes, boundaryVolumes;
 
-    status = tetrahedralize(meshObject, surfaceNodes, volumeNodes,
+    status = tetrahedralize(meshObject, surfaceNodes, volumeNodes, boundaryVolumes,
         volumeElementScale, useVoxelSize ? voxelSize : 0);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -241,6 +260,7 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
 
     surfaceNodesHandle.set(intArrayData.create(surfaceNodes));
     volumeNodesHandle.set(intArrayData.create(volumeNodes));
+    boundaryVolumesHandle.set(intArrayData.create(boundaryVolumes));
 
     data.setClean(plug);
 
@@ -248,7 +268,8 @@ MStatus FEMMesh::compute(const MPlug & plug, MDataBlock & data) {
 }
 
 MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
-    MIntArray & volumeNodes, double volumeElementScale, double voxelSize) {
+    MIntArray & volumeNodes, MIntArray & boundaryVolumes,
+    double volumeElementScale, double voxelSize) {
     computation.beginComputation();
 
     MStatus status;
@@ -386,6 +407,7 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
     vertexArray.setLength(pointCount);
     surfaceNodes.setLength(surfaceCount * 3);
     volumeNodes.setLength(volumeCount * 4);
+    boundaryVolumes.setLength(surfaceCount);
 
     for (int i = 0; i < pointCount; i++) {
         if (computation.isInterruptRequested()) {
@@ -400,6 +422,8 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
         vertexArray.set(i, point[0], point[1], point[2]);
     }
 
+    FEMTriangleSet boundaryTriangles;
+
     for (int i = 0; i < surfaceCount; i++) {
         if (computation.isInterruptRequested()) {
             computation.endComputation();
@@ -412,6 +436,8 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
 
         for (int j = 0; j < 3; j++)
             surfaceNodes[i * 3 + j] = triangle[j];
+
+        boundaryTriangles.insert(FEMTriangleFace(i, triangle[0], triangle[1], triangle[2]));
     }
 
     FEMTriangleSet triangleIndices;
@@ -431,10 +457,25 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
         volumeNodes[i * 4 + 2] = tetrahedron[3];
         volumeNodes[i * 4 + 3] = tetrahedron[2];
 
-        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[1], tetrahedron[2]));
-        triangleIndices.insert(FEMTriangle(tetrahedron[1], tetrahedron[3], tetrahedron[2]));
-        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[2], tetrahedron[3]));
-        triangleIndices.insert(FEMTriangle(tetrahedron[0], tetrahedron[3], tetrahedron[1]));
+        FEMTriangleFace triangles[4];
+
+        triangles[0] = FEMTriangleFace(tetrahedron[0], tetrahedron[1], tetrahedron[2]);
+        triangles[1] = FEMTriangleFace(tetrahedron[1], tetrahedron[3], tetrahedron[2]);
+        triangles[2] = FEMTriangleFace(tetrahedron[0], tetrahedron[2], tetrahedron[3]);
+        triangles[3] = FEMTriangleFace(tetrahedron[0], tetrahedron[3], tetrahedron[1]);
+
+        for (unsigned int j = 0; j < 4; j++) {
+            const FEMTriangleFace & triangle = triangles[j];
+
+            triangleIndices.insert(triangle);
+
+            FEMTriangleSet::iterator triangleIterator(boundaryTriangles.find(triangle));
+
+            if (triangleIterator != boundaryTriangles.end()) {
+                boundaryVolumes[triangleIterator->triangleIndex] = i;
+                boundaryTriangles.erase(triangleIterator);
+            }
+        }
     }
 
     triangleCount = triangleIndices.size();
@@ -448,10 +489,11 @@ MStatus FEMMesh::tetrahedralize(MObject & meshObject, MIntArray & surfaceNodes,
             return MS::kFailure;
         }
 
-        const FEMTriangle & triangle = *it++;
+        const FEMTriangleFace & triangle = *it++;
 
-        for (int j = 0; j < 3; j++)
-            triangleVertices[i * 3 + j] = triangle[j];
+        triangleVertices[i * 3] = triangle.index0;
+        triangleVertices[i * 3 + 1] = triangle.index1;
+        triangleVertices[i * 3 + 2] = triangle.index2;
     }
 
     triangleIndices.clear();

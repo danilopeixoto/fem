@@ -27,7 +27,10 @@ namespace opentissue {
                 real_type m_max_yield;
                 real_type m_creep;
 
+                real_type m_volume0;
                 real_type m_volume;
+
+                vector_type m_centroid;
 
                 vector_type m_e10;
                 vector_type m_e20;

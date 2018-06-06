@@ -65,6 +65,7 @@ MObject FEMObject::currentTimeObject;
 MObject FEMObject::inputMeshObject;
 MObject FEMObject::surfaceNodesObject;
 MObject FEMObject::volumeNodesObject;
+MObject FEMObject::boundaryVolumesObject;
 MObject FEMObject::matrixObject;
 MObject FEMObject::outputMeshObject;
 MObject FEMObject::nextStateObject;
@@ -204,6 +205,9 @@ MStatus FEMObject::initialize() {
     volumeNodesObject = typedAttribute.create("volumeNodes", "vn", MFnIntArrayData::kIntArray);
     typedAttribute.setStorable(true);
 
+    boundaryVolumesObject = typedAttribute.create("boundaryVolumes", "bv", MFnIntArrayData::kIntArray);
+    typedAttribute.setStorable(true);
+
     matrixObject = matrixAttribute.create("matrix", "m", MFnMatrixAttribute::kDouble);
     matrixAttribute.setStorable(true);
 
@@ -236,6 +240,7 @@ MStatus FEMObject::initialize() {
     addAttribute(inputMeshObject);
     addAttribute(surfaceNodesObject);
     addAttribute(volumeNodesObject);
+    addAttribute(boundaryVolumesObject);
     addAttribute(matrixObject);
     addAttribute(outputMeshObject);
     addAttribute(nextStateObject);
@@ -256,7 +261,8 @@ MStatus	FEMObject::setDependentsDirty(const MPlug & plug, MPlugArray & plugArray
         parameters.updateParameters = true;
 
     if (FEM_COMPARE_ATTR(inputMeshObject) || FEM_COMPARE_ATTR(surfaceNodesObject)
-        || FEM_COMPARE_ATTR(volumeNodesObject) || FEM_COMPARE_ATTR(matrixObject))
+        || FEM_COMPARE_ATTR(volumeNodesObject) || FEM_COMPARE_ATTR(boundaryVolumesObject)
+        || FEM_COMPARE_ATTR(matrixObject))
         parameters.updateMesh = true;
 
     if (updateInitialData && parameters.updateMesh) {
@@ -334,6 +340,9 @@ MStatus FEMObject::compute(const MPlug & plug, MDataBlock & data) {
     MDataHandle volumeNodesHandle = data.inputValue(volumeNodesObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
+    MDataHandle boundaryVolumesHandle = data.inputValue(boundaryVolumesObject, &status);
+    CHECK_MSTATUS_AND_RETURN_IT(status);
+
     MDataHandle matrixHandle = data.inputValue(matrixObject, &status);
     CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -356,6 +365,7 @@ MStatus FEMObject::compute(const MPlug & plug, MDataBlock & data) {
     parameters.friction = frictionHandle.asDouble();
     parameters.surfaceNodesObject = surfaceNodesHandle.data();
     parameters.volumeNodesObject = volumeNodesHandle.data();
+    parameters.boundaryVolumesObject = boundaryVolumesHandle.data();
     parameters.matrix = matrixHandle.asMatrix();
     parameters.meshObject = inputMeshHandle.asMesh();
 
@@ -419,8 +429,8 @@ MStatus FEMObject::compute(const MPlug & plug, MDataBlock & data) {
 }
 
 void FEMObject::updateOutputMesh(const FEMObjectData * objectData, MObject & meshObject) {
-    const FEMTetrahedralMeshSharedPointer tetrahedralMesh = objectData->getTetrahedralMesh();
-    const FEMIntegerArraySharedPointer surfaceNodes = objectData->getSurfaceNodes();
+    const FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
+    const MIntArray * surfaceNodes = objectData->getSurfaceNodes();
 
     int pointCount = (int)tetrahedralMesh->size_nodes();
     int surfaceCount = surfaceNodes->length() / 3;

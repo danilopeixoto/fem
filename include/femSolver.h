@@ -28,8 +28,8 @@
 #ifndef FEM_SOLVER
 #define FEM_SOLVER
 
-#include <femObjectData.h>
 #include <femCollisionWorld.h>
+#include <femObjectData.h>
 
 #include <maya/MPxNode.h>
 #include <maya/MObject.h>
@@ -42,16 +42,34 @@
 #include <maya/MVector.h>
 #include <maya/MComputation.h>
 
-#include <LinearMath/btVector3.h>
-#include <LinearMath/btMatrix3x3.h>
-
 #include <vector>
-#include <memory>
+#include <unordered_set>
 
-#define FEM_EPSILON 1.0e-6
+struct FEMContactIndexPair {
+    unsigned int index0, index1;
+
+    FEMContactIndexPair();
+    FEMContactIndexPair(unsigned int, unsigned int);
+    ~FEMContactIndexPair();
+};
+
+struct FEMContactIndexPairHash {
+    FEMContactIndexPairHash();
+    ~FEMContactIndexPairHash();
+
+    size_t operator ()(const FEMContactIndexPair &) const;
+};
+
+struct FEMContactIndexPairEqual {
+    FEMContactIndexPairEqual();
+    ~FEMContactIndexPairEqual();
+
+    bool operator ()(const FEMContactIndexPair &, const FEMContactIndexPair &) const;
+};
 
 typedef std::vector<FEMObjectData *> FEMFrameData;
-typedef std::shared_ptr<FEMCollisionWorld> FEMCollisionWorldSharedPointer;
+typedef std::unordered_set<FEMContactIndexPair,
+    FEMContactIndexPairHash, FEMContactIndexPairEqual> FEMContactManifoldSet;
 
 class FEMSolver : public MPxNode {
 public:
@@ -82,16 +100,10 @@ public:
     virtual MStatus compute(const MPlug &, MDataBlock &);
 
 private:
-    FEMCollisionWorldSharedPointer collisionWorld;
+    void computeCollisionForces(FEMTriangleShape *, FEMTriangleShape *, double);
 
-    btVector3 computeImpulse(
-        const btVector3 &, const btVector3 &,
-        double, double, double,
-        const btVector3 &, const btVector3 &,
-        const btMatrix3x3 &, const btMatrix3x3 &);
-
-    void performCollisionResponse(FEMFrameData &);
-    void simulateTimestep(FEMFrameData &, const MVector &, double, int);
+    MStatus performCollisionResponse(FEMCollisionWorld *);
+    MStatus simulateTimestep(FEMFrameData &, const MVector &, double, int);
 };
 
 #endif

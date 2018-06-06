@@ -102,6 +102,7 @@ global proc AEfemObjectTemplate(string $nodeName) {
     editorTemplate -suppress "inputMesh";
     editorTemplate -suppress "surfaceNodes";
     editorTemplate -suppress "volumeNodes";
+    editorTemplate -suppress "boundaryVolumes";
     editorTemplate -suppress "matrix";
     editorTemplate -suppress "nextState";
 

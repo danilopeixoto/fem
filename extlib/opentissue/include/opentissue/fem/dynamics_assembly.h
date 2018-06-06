@@ -64,7 +64,7 @@ namespace opentissue {
                         A_ij += dt * c_ij;
                     }
 
-                    b_i -= node->m_f0;
+                    b_i += node->m_f0;
                     b_i += node->m_f_external;
                     b_i *= dt;
                     b_i += node->m_velocity * m_i;

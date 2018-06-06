@@ -67,6 +67,7 @@ public:
     static MObject inputMeshObject;
     static MObject surfaceNodesObject;
     static MObject volumeNodesObject;
+    static MObject boundaryVolumesObject;
     static MObject matrixObject;
     static MObject outputMeshObject;
     static MObject nextStateObject;

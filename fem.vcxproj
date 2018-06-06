@@ -126,7 +126,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>OPENVDB_DLL;ALEMBIC_DLL;OPENEXR_DLL;NOMINMAX;_WINDOWS;_WIN64;_USRDLL;_DEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(BULLET_PATH)\include\Bullet\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(BULLET_PATH)\include\Bullet\;$(CGAL_PATH)\include\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
       <OpenMPSupport>
       </OpenMPSupport>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
@@ -134,8 +134,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(BULLET_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;LinearMath_Debug.lib;BulletCollision_Debug.lib;openvdb.lib;nglib.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb_debug.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(BULLET_PATH)\lib\;$(CGAL_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;LinearMath_Debug.lib;BulletCollision_Debug.lib;libCGAL-vc140-mt-gd-4.12.lib;openvdb.lib;nglib.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb_debug.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
@@ -154,7 +154,7 @@ for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del 
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>OPENVDB_DLL;ALEMBIC_DLL;OPENEXR_DLL;NOMINMAX;_WINDOWS;_WIN64;_USRDLL;NDEBUG;NT_PLUGIN;REQUIRE_IOSTREAM</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(BULLET_PATH)\include\Bullet\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include\;extlib\opentissue\include\;extlib\nglib\build\nglib\include\;$(MAYA_PATH)\include\;$(BULLET_PATH)\include\Bullet\;$(CGAL_PATH)\include\;$(OPENVDB_PATH)\include\;$(BOOST_PATH)\;$(TBB_PATH)\include\;$(ILMBASE_PATH)\include\;$(ZLIB_PATH)\include\</AdditionalIncludeDirectories>
       <OpenMPSupport>
       </OpenMPSupport>
     </ClCompile>
@@ -163,8 +163,8 @@ for %%f in ("$(OutDir)\*") do if not "%%f" == "$(OutDir)\$(TargetFileName)" del 
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(BULLET_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;LinearMath.lib;BulletCollision.lib;openvdb.lib;nglib.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>extlib\nglib\build\nglib\lib\;$(MAYA_PATH)\lib\;$(BULLET_PATH)\lib\;$(CGAL_PATH)\lib\;$(OPENVDB_PATH)\lib\;$(BOOST_PATH)\lib64-msvc-14.1\;$(TBB_PATH)\lib\intel64\vc14\;$(ILMBASE_PATH)\lib\;$(ZLIB_PATH)\lib\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;LinearMath.lib;BulletCollision.lib;libCGAL-vc140-mt-4.12.lib;openvdb.lib;nglib.lib;boost_system-vc141-mt-1_64.lib;boost_iostreams-vc141-mt-1_64.lib;tbb.lib;half.lib;Imath-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Iex-2_2.lib;zlib1.lib</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin</AdditionalOptions>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>

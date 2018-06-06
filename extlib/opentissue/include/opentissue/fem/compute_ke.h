@@ -24,7 +24,7 @@ namespace opentissue {
                 matrix_type(*Ke)[4] = tetrahedron->m_Ke;
 
                 for (unsigned int i = 0; i < 4; i++) {
-                    for (unsigned int j = 0; j < 4; j++) {
+                    for (unsigned int j = i; j < 4; j++) {
                         real_type const &bi = B[i](0);
                         real_type const &ci = B[i](1);
                         real_type const &di = B[i](2);
@@ -33,15 +33,36 @@ namespace opentissue {
                         real_type const &dj = B[j](2);
 
                         Ke[i][j](0, 0) = E(0) * bi * bj + E(2) * (ci * cj + di * dj);
-                        Ke[i][j](0, 1) = E(1) * bi * cj + E(2) * (ci * bj);
-                        Ke[i][j](0, 2) = E(1) * bi * dj + E(2) * (di * bj);
-                        Ke[i][j](1, 0) = E(1) * ci * bj + E(2) * (bi * cj);
+                        Ke[i][j](0, 1) = E(1) * bi * cj + E(2) * ci * bj;
+                        Ke[i][j](0, 2) = E(1) * bi * dj + E(2) * di * bj;
                         Ke[i][j](1, 1) = E(0) * ci * cj + E(2) * (bi * bj + di * dj);
-                        Ke[i][j](1, 2) = E(1) * ci * dj + E(2) * (di * cj);
-                        Ke[i][j](2, 0) = E(1) * di * bj + E(2) * (bi * dj);
-                        Ke[i][j](2, 1) = E(1) * di * cj + E(2) * (ci * dj);
+                        Ke[i][j](1, 2) = E(1) * ci * dj + E(2) * di * cj;
                         Ke[i][j](2, 2) = E(0) * di * dj + E(2) * (ci * cj + bi * bj);
-                        Ke[i][j] *= tetrahedron->m_volume;
+
+                        if (j == i) {
+                            Ke[i][j](1, 0) = Ke[i][j](0, 1);
+                            Ke[i][j](2, 0) = Ke[i][j](0, 2);
+                            Ke[i][j](2, 1) = Ke[i][j](1, 2);
+
+                            Ke[i][j] *= tetrahedron->m_volume0;
+                        }
+                        else {
+                            Ke[i][j](1, 0) = E(1) * ci * bj + E(2) * bi * cj;
+                            Ke[i][j](2, 0) = E(1) * di * bj + E(2) * bi * dj;
+                            Ke[i][j](2, 1) = E(1) * di * cj + E(2) * ci * dj;
+
+                            Ke[i][j] *= tetrahedron->m_volume0;
+
+                            Ke[j][i](0, 0) = Ke[i][j](0, 0);
+                            Ke[j][i](0, 1) = Ke[i][j](1, 0);
+                            Ke[j][i](0, 2) = Ke[i][j](2, 0);
+                            Ke[j][i](1, 0) = Ke[i][j](0, 1);
+                            Ke[j][i](1, 1) = Ke[i][j](1, 1);
+                            Ke[j][i](1, 2) = Ke[i][j](2, 1);
+                            Ke[j][i](2, 0) = Ke[i][j](0, 2);
+                            Ke[j][i](2, 1) = Ke[i][j](1, 2);
+                            Ke[j][i](2, 2) = Ke[i][j](2, 2);
+                        }
                     }
                 }
             }

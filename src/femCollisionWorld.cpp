@@ -30,35 +30,145 @@
 #include <BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h>
 #include <BulletCollision/CollisionDispatch/btCollisionDispatcher.h>
 #include <BulletCollision/BroadphaseCollision/btDbvtBroadphase.h>
-#include <BulletCollision/BroadphaseCollision/btBroadphaseProxy.h>
 
-btMatrix3x3 FEMOuterProduct(const btVector3 & lhs, const btVector3 & rhs) {
-    return btMatrix3x3(
-        lhs.x() * rhs.x(), lhs.x() * rhs.y(), lhs.x() * rhs.z(),
-        lhs.y() * rhs.x(), lhs.y() * rhs.y(), lhs.y() * rhs.z(),
-        lhs.z() * rhs.x(), lhs.z() * rhs.y(), lhs.z() * rhs.z());
+#include <CGAL/Polygon_mesh_processing/corefinement.h>
+#include <CGAL/Polygon_mesh_processing/self_intersections.h>
+
+#include <cmath>
+
+unsigned int FEMIntersectionRegion::triangleIndices[12] = { 0, 1, 3, 1, 2, 3, 0, 3, 2, 0, 2, 1 };
+
+void FEMIntersectionRegion::tetrahedronToMesh(const FEMTetrahedron * tetrahedron,
+    FEMSurfaceMesh & surfaceMesh) {
+    for (unsigned int i = 0; i < 4; i++) {
+        const FEMVector & vertex = tetrahedron->node(i)->m_world_coord;
+
+        surfaceMesh.add_vertex(FEMMeshPoint(vertex[0], vertex[1], vertex[2]));
+
+        surfaceMesh.add_face(
+            FEMSurfaceMesh::Vertex_index(triangleIndices[i * 3]),
+            FEMSurfaceMesh::Vertex_index(triangleIndices[i * 3 + 1]),
+            FEMSurfaceMesh::Vertex_index(triangleIndices[i * 3 + 2]));
+    }
+}
+void FEMIntersectionRegion::calculateTetrahedronNormal(const FEMTetrahedron * tetrahedron,
+    FEMVectorList & normalList) {
+    normalList.resize(4);
+
+    for (unsigned int i = 0; i < 4; i++) {
+        const FEMVector & vertex0 = tetrahedron->node(triangleIndices[i * 3])->m_world_coord;
+        const FEMVector & vertex1 = tetrahedron->node(triangleIndices[i * 3 + 1])->m_world_coord;
+        const FEMVector & vertex2 = tetrahedron->node(triangleIndices[i * 3 + 2])->m_world_coord;
+
+        FEMVector normal = (vertex1 - vertex0) % (vertex2 - vertex0);
+
+        normalList[i][0] = normal[0];
+        normalList[i][1] = normal[1];
+        normalList[i][2] = normal[2];
+    }
+}
+bool FEMIntersectionRegion::collinear(const btVector3 & lhs, const btVector3 & rhs) {
+    return std::abs(lhs.dot(rhs) - lhs.length() * rhs.length()) < FEM_EPSILON;
+}
+
+FEMIntersectionRegion::FEMIntersectionRegion() : volume(0) {}
+FEMIntersectionRegion::~FEMIntersectionRegion() {}
+
+void FEMIntersectionRegion::create(const FEMTetrahedron * tetrahedron0,
+    const FEMTetrahedron * tetrahedron1) {
+    FEMSurfaceMesh mesh0, mesh1, outputMesh;
+    FEMVectorList tetrahedronNormalList, outputNormalList;
+
+    tetrahedronToMesh(tetrahedron0, mesh0);
+    tetrahedronToMesh(tetrahedron1, mesh1);
+
+    calculateTetrahedronNormal(tetrahedron0, tetrahedronNormalList);
+
+    CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(mesh0, mesh1, outputMesh);
+
+    volume = 0;
+    centroid.setZero();
+    normal.setZero();
+
+    FEMSurfaceMesh::Face_iterator faceIterator(outputMesh.faces_begin());
+
+    while (faceIterator != outputMesh.faces_end()) {
+        FEMSurfaceMesh::Halfedge_index edgeIndex(outputMesh.halfedge(*faceIterator));
+
+        const FEMMeshPoint & point0 = outputMesh.point(outputMesh.target(edgeIndex));
+        edgeIndex = outputMesh.next(edgeIndex);
+
+        const FEMMeshPoint & point1 = outputMesh.point(outputMesh.target(edgeIndex));
+        edgeIndex = outputMesh.next(edgeIndex);
+
+        const FEMMeshPoint & point2 = outputMesh.point(outputMesh.target(edgeIndex));
+
+        btVector3 vertex0(point0[0], point0[1], point0[2]);
+        btVector3 vertex1(point1[0], point1[1], point1[2]);
+        btVector3 vertex2(point2[0], point2[1], point2[2]);
+
+        btVector3 n = (vertex1 - vertex0).cross(vertex2 - vertex0);
+        outputNormalList.push_back(n);
+
+        volume += n.dot(vertex0);
+
+        btVector3 a = vertex0 + vertex1;
+        btVector3 b = vertex1 + vertex2;
+        btVector3 c = vertex2 + vertex0;
+
+        centroid[0] += n[0] * (a[0] * a[0] + b[0] * b[0] + c[0] * c[0]);
+        centroid[1] += n[1] * (a[1] * a[1] + b[1] * b[1] + c[1] * c[1]);
+        centroid[2] += n[2] * (a[2] * a[2] + b[2] * b[2] + c[2] * c[2]);
+
+        faceIterator++;
+    }
+
+    for (size_t i = 0; i < tetrahedronNormalList.size(); i++) {
+        const btVector3 & tetrahedronNormal = tetrahedronNormalList[i];
+
+        for (size_t j = 0; j < outputNormalList.size(); j++) {
+            if (collinear(tetrahedronNormal, outputNormalList[j])) {
+                normal += tetrahedronNormal;
+                break;
+            }
+        }
+    }
+
+    volume /= 6.0;
+
+    if (volume != 0)
+        centroid /= 48.0 * volume;
+
+    normal.normalize();
 }
 
 FEMTriangleShape::FEMTriangleShape() : btPolyhedralConvexShape() {
-    m_shapeType = TRIANGLE_SHAPE_PROXYTYPE;
-
-    beginIndex = 0;
-
-    nodes[0] = nullptr;
-    nodes[1] = nullptr;
-    nodes[2] = nullptr;
+    m_shapeType = CUSTOM_POLYHEDRAL_SHAPE_TYPE;
+    tetrahedron = nullptr;
 }
-FEMTriangleShape::FEMTriangleShape(unsigned int beginIndex,
-    FEMNodePointer node0, FEMNodePointer node1, FEMNodePointer node2) : btPolyhedralConvexShape() {
-    m_shapeType = TRIANGLE_SHAPE_PROXYTYPE;
+FEMTriangleShape::FEMTriangleShape(int node0, int node1, int node2, FEMTetrahedron * tetrahedron)
+    : btPolyhedralConvexShape() {
+    m_shapeType = CUSTOM_POLYHEDRAL_SHAPE_TYPE;
+    setTriangle(node0, node1, node2, tetrahedron);
+}
+FEMTriangleShape::~FEMTriangleShape() {}
 
-    this->beginIndex = beginIndex;
-
+void FEMTriangleShape::setTriangle(int node0, int node1, int node2, FEMTetrahedron * tetrahedron) {
     nodes[0] = node0;
     nodes[1] = node1;
     nodes[2] = node2;
+
+    this->tetrahedron = tetrahedron;
 }
-FEMTriangleShape::~FEMTriangleShape() {}
+int FEMTriangleShape::getNodeIndex(int index) const {
+    return nodes[index];
+}
+FEMTetrahedron * FEMTriangleShape::getTetrahedron() {
+    return tetrahedron;
+}
+const FEMTetrahedron * FEMTriangleShape::getTetrahedron() const {
+    return tetrahedron;
+}
 
 const char * FEMTriangleShape::getName() const {
     return "FEMTriangleShape";
@@ -66,8 +176,8 @@ const char * FEMTriangleShape::getName() const {
 int FEMTriangleShape::getNumPreferredPenetrationDirections() const {
     return 2;
 }
-void FEMTriangleShape::getPreferredPenetrationDirection(
-    int index, btVector3 & penetrationVector) const {
+void FEMTriangleShape::getPreferredPenetrationDirection(int index,
+    btVector3 & penetrationVector) const {
     calculateNormal(penetrationVector);
 
     if (index)
@@ -83,11 +193,11 @@ int	FEMTriangleShape::getNumPlanes() const {
     return 1;
 }
 void FEMTriangleShape::getVertex(int index, btVector3 & vertex) const {
-    FEMVector & position = nodes[index]->m_world_coord;
+    const FEMVector & position = tetrahedron->global_index_node(nodes[index])->m_world_coord;
 
-    vertex.setX(position[0]);
-    vertex.setY(position[1]);
-    vertex.setZ(position[2]);
+    vertex[0] = position[0];
+    vertex[1] = position[1];
+    vertex[2] = position[2];
 }
 void FEMTriangleShape::getEdge(int index, btVector3 & vertex0, btVector3 & vertex1) const {
     getVertex(index, vertex0);
@@ -95,28 +205,23 @@ void FEMTriangleShape::getEdge(int index, btVector3 & vertex0, btVector3 & verte
 }
 void FEMTriangleShape::getPlane(btVector3 & normal, btVector3 & position, int index) const {
     calculateNormal(normal);
-    getVertex(0, position);
+    getVertex(index, position);
 }
 void FEMTriangleShape::getAabb(const btTransform & transform,
     btVector3 & minimum, btVector3 & maximum) const {
-    getAabbSlow(transform, minimum, maximum);
-}
+    minimum.setValue(FEM_INFINITY, FEM_INFINITY, FEM_INFINITY);
+    maximum.setValue(-FEM_INFINITY, -FEM_INFINITY, -FEM_INFINITY);
 
-void FEMTriangleShape::batchedUnitVectorGetSupportingVertexWithoutMargin(
-    const btVector3 * inputVectorArray, btVector3 * outputVectorArray, int vectorCount) const {
-    btVector3 vertices[3];
+    btVector3 vertex;
 
-    getVertex(0, vertices[0]);
-    getVertex(1, vertices[1]);
-    getVertex(2, vertices[2]);
+    for (int i = 0; i < 3; i++) {
+        getVertex(i, vertex);
 
-    for (int i = 0; i < vectorCount; i++) {
-        const btVector3 & direction = inputVectorArray[i];
-        btVector3 dots = direction.dot3(vertices[0], vertices[1], vertices[2]);
-
-        outputVectorArray[i] = vertices[dots.maxAxis()];
+        minimum.setMin(vertex);
+        maximum.setMax(vertex);
     }
 }
+
 bool FEMTriangleShape::isInside(const btVector3 & point, btScalar tolerance) const {
     btVector3 normal, position;
     getPlane(normal, position, 0);
@@ -150,21 +255,20 @@ bool FEMTriangleShape::isInside(const btVector3 & point, btScalar tolerance) con
 
     return false;
 }
+void FEMTriangleShape::batchedUnitVectorGetSupportingVertexWithoutMargin(
+    const btVector3 * inputVectorArray, btVector3 * outputVectorArray, int vectorCount) const {
+    btVector3 vertices[3];
 
-void FEMTriangleShape::setBeginIndex(unsigned int beginIndex) {
-    this->beginIndex = beginIndex;
-}
-void FEMTriangleShape::setNode(unsigned int index, FEMNodePointer node) {
-    nodes[index] = node;
-}
-unsigned int FEMTriangleShape::getBeginIndex() const {
-    return beginIndex;
-}
-FEMNodePointer FEMTriangleShape::getNode(unsigned int index) {
-    return nodes[index];
-}
-const FEMNodePointer FEMTriangleShape::getNode(unsigned int index) const {
-    return nodes[index];
+    getVertex(0, vertices[0]);
+    getVertex(1, vertices[1]);
+    getVertex(2, vertices[2]);
+
+    for (int i = 0; i < vectorCount; i++) {
+        const btVector3 & direction = inputVectorArray[i];
+        btVector3 dots = direction.dot3(vertices[0], vertices[1], vertices[2]);
+
+        outputVectorArray[i] = vertices[dots.maxAxis()];
+    }
 }
 
 void FEMTriangleShape::calculateNormal(btVector3 & normal) const {
@@ -176,49 +280,6 @@ void FEMTriangleShape::calculateNormal(btVector3 & normal) const {
 
     normal = (vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]);
     normal.normalize();
-}
-void FEMTriangleShape::calculateBarycentric(const btVector3 & point, btVector3 & barycentric) const {
-    const FEMVector & n0 = nodes[0]->m_world_coord;
-    const FEMVector & n1 = nodes[1]->m_world_coord;
-    const FEMVector & n2 = nodes[2]->m_world_coord;
-
-    FEMVector v0 = n1 - n0;
-    FEMVector v1 = n2 - n0;
-    FEMVector v2(
-        point.x() - n0[0],
-        point.y() - n0[1],
-        point.z() - n0[2]);
-
-    btScalar inverseDet = 1.0 / (v0[0] * v1[1] - v1[0] * v0[1]);
-
-    barycentric.setX(inverseDet * (v2[0] * v1[1] - v1[0] * v2[1]));
-    barycentric.setY(inverseDet * (v0[0] * v2[1] - v2[0] * v0[1]));
-    barycentric.setZ(1.0 - barycentric.x() - barycentric.y());
-}
-void FEMTriangleShape::calculateInverseInertiaTensor(btMatrix3x3 & inverseInertiaTensor) const {
-    const FEMVector & n0 = nodes[0]->m_world_coord;
-    const FEMVector & n1 = nodes[1]->m_world_coord;
-    const FEMVector & n2 = nodes[2]->m_world_coord;
-
-    btScalar twiceArea = opentissue::math::length(opentissue::math::cross(n1 - n0, n2 - n0));
-
-    btScalar c0 = 12.0 / twiceArea;
-
-    btScalar s0 = n0[0] * n0[0];
-    btScalar s1 = n1[1] * n1[1];
-    btScalar s2 = n2[2] * n2[2];
-
-    inverseInertiaTensor[0][0] = c0 / (s1 + s2);
-    inverseInertiaTensor[0][1] = 0;
-    inverseInertiaTensor[0][2] = 0;
-
-    inverseInertiaTensor[1][0] = 0;
-    inverseInertiaTensor[1][1] = c0 / (s0 + s2);
-    inverseInertiaTensor[1][2] = 0;
-
-    inverseInertiaTensor[2][0] = 0;
-    inverseInertiaTensor[2][1] = 0;
-    inverseInertiaTensor[2][2] = c0 / (s0 + s1);
 }
 btVector3 FEMTriangleShape::localGetSupportingVertexWithoutMargin(
     const btVector3 & direction) const {
@@ -232,9 +293,55 @@ btVector3 FEMTriangleShape::localGetSupportingVertexWithoutMargin(
     return vertices[dots.maxAxis()];
 }
 
+void FEMTriangleShape::calculateIntersectionRegion(const FEMTriangleShape * triangleShape,
+    FEMIntersectionRegion & region) const {
+    region.create(tetrahedron, triangleShape->getTetrahedron());
+}
+void FEMTriangleShape::calculateVolumeCoordinates(const btVector3 & point,
+    btVector3 & coordinates) const {
+    FEMVector p(point[0], point[1], point[2]);
+
+    const FEMVector & p0 = tetrahedron->i()->m_world_coord;
+    const FEMVector & p1 = tetrahedron->j()->m_world_coord;
+    const FEMVector & p2 = tetrahedron->k()->m_world_coord;
+    const FEMVector & p3 = tetrahedron->m()->m_world_coord;
+
+    double inv6V = 1.0 / (6.0 * tetrahedron->m_volume);
+
+    FEMVector e0(p0 - p);
+    FEMVector e1(p1 - p);
+    FEMVector e2(p2 - p);
+    FEMVector e3(p3 - p);
+
+    coordinates[0] = (e1 * (e2 % e3)) * inv6V;
+    coordinates[1] = (e2 * (e0 % e3)) * inv6V;
+    coordinates[2] = (e3 * (e0 % e1)) * inv6V;
+    coordinates[3] = 1.0 - coordinates[0] - coordinates[1] - coordinates[2];
+}
+void FEMTriangleShape::calculateVelocity(const btVector3 & coordinates, btVector3 & velocity) {
+    velocity.setZero();
+
+    for (int i = 0; i < 4; i++) {
+        const FEMVector & nodeVelocity = tetrahedron->node(i)->m_velocity;
+
+        velocity[0] += coordinates[i] * nodeVelocity[0];
+        velocity[1] += coordinates[i] * nodeVelocity[1];
+        velocity[2] += coordinates[i] * nodeVelocity[2];
+    }
+}
+void FEMTriangleShape::applyForce(const btVector3 & coordinates, const btVector3 & force) {
+    for (int i = 0; i < 4; i++) {
+        FEMVector & nodeForce = tetrahedron->node(i)->m_f_external;
+
+        nodeForce[0] += coordinates[i] * force[0];
+        nodeForce[1] += coordinates[i] * force[1];
+        nodeForce[2] += coordinates[i] * force[2];
+    }
+}
+
 FEMCollisionShape::FEMCollisionShape() : btCompoundShape() {}
 FEMCollisionShape::~FEMCollisionShape() {
-    for (unsigned int i = 0; i < getNumChildShapes(); i++) {
+    for (int i = 0; i < getNumChildShapes(); i++) {
         FEMTriangleShape * triangleShape = (FEMTriangleShape *)getChildShape(i);
         removeChildShapeByIndex(i);
 
@@ -245,46 +352,57 @@ FEMCollisionShape::~FEMCollisionShape() {
 FEMCollisionObject::FEMCollisionObject() : btCollisionObject() {
     tetrahedralMesh = nullptr;
     surfaceNodes = nullptr;
+    boundaryVolumes = nullptr;
 }
-FEMCollisionObject::FEMCollisionObject(FEMTetrahedralMeshPointer tetrahedralMesh,
-    FEMIntegerArrayPointer surfaceNodes) : btCollisionObject() {
-    createShape(tetrahedralMesh, surfaceNodes);
+FEMCollisionObject::FEMCollisionObject(FEMTetrahedralMesh * tetrahedralMesh,
+    MIntArray * surfaceNodes, MIntArray * boundaryVolumes) : btCollisionObject() {
+    createShape(tetrahedralMesh, surfaceNodes, boundaryVolumes);
 }
 FEMCollisionObject::~FEMCollisionObject() {
     deleteShape();
 }
 
-FEMTetrahedralMeshPointer FEMCollisionObject::getTetrahedralMesh() {
+FEMTetrahedralMesh * FEMCollisionObject::getTetrahedralMesh() {
     return tetrahedralMesh;
 }
-const FEMTetrahedralMeshPointer FEMCollisionObject::getTetrahedralMesh() const {
+const FEMTetrahedralMesh * FEMCollisionObject::getTetrahedralMesh() const {
     return tetrahedralMesh;
 }
-FEMIntegerArrayPointer FEMCollisionObject::getSurfaceNodes() {
+MIntArray * FEMCollisionObject::getSurfaceNodes() {
     return surfaceNodes;
 }
-const FEMIntegerArrayPointer FEMCollisionObject::getSurfaceNodes() const {
+const MIntArray * FEMCollisionObject::getSurfaceNodes() const {
     return surfaceNodes;
 }
+MIntArray * FEMCollisionObject::getBoundaryVolumes() {
+    return boundaryVolumes;
+}
+const MIntArray * FEMCollisionObject::getBoundaryVolumes() const {
+    return boundaryVolumes;
+}
 
-void FEMCollisionObject::createShape(FEMTetrahedralMeshPointer tetrahedralMesh,
-    FEMIntegerArrayPointer surfaceNodes) {
-    deleteShape();
-
+void FEMCollisionObject::createShape(FEMTetrahedralMesh * tetrahedralMesh,
+    MIntArray * surfaceNodes, MIntArray * boundaryVolumes) {
     FEMCollisionShape * collisionShape = new FEMCollisionShape();
 
     for (unsigned int i = 0; i < surfaceNodes->length() / 3; i++) {
-        FEMTriangleShape * triangleShape = new FEMTriangleShape();
+        int node0 = (*surfaceNodes)[i * 3];
+        int node1 = (*surfaceNodes)[i * 3 + 1];
+        int node2 = (*surfaceNodes)[i * 3 + 2];
 
-        for (unsigned int j = 0; j < 3; j++) {
-            FEMTetrahedralMesh::node_iterator node = tetrahedralMesh->node((*surfaceNodes)[i * 3 + j]);
-            triangleShape->setNode(j, &(*node));
-        }
+        int tetrahedronIndex = (*boundaryVolumes)[i];
+
+        FEMTetrahedron & tetrahedron = *tetrahedralMesh->tetrahedron(tetrahedronIndex);
+        FEMTriangleShape * triangleShape = new FEMTriangleShape(node0, node1, node2, &tetrahedron);
 
         collisionShape->addChildShape(btTransform(), triangleShape);
     }
 
     setCollisionShape(collisionShape);
+
+    this->tetrahedralMesh = tetrahedralMesh;
+    this->surfaceNodes = surfaceNodes;
+    this->boundaryVolumes = boundaryVolumes;
 }
 void FEMCollisionObject::deleteShape() {
     FEMCollisionShape * collisionShape = (FEMCollisionShape *)getCollisionShape();
@@ -293,16 +411,52 @@ void FEMCollisionObject::deleteShape() {
         delete collisionShape;
 
         setCollisionShape(nullptr);
+
         tetrahedralMesh = nullptr;
         surfaceNodes = nullptr;
+        boundaryVolumes = nullptr;
     }
+}
+
+void FEMCollisionObject::calculateSelfIntersections(FEMIntersectionPairList & intersections) const {
+    FEMSurfaceMesh surfaceMesh;
+
+    for (size_t i = 0; i < tetrahedralMesh->size_nodes(); i++) {
+        const FEMVector & vertex = tetrahedralMesh->node(i)->m_world_coord;
+        surfaceMesh.add_vertex(FEMMeshPoint(vertex[0], vertex[1], vertex[2]));
+    }
+
+    for (unsigned int i = 0; i < surfaceNodes->length() / 3; i++) {
+        surfaceMesh.add_face(
+            FEMSurfaceMesh::Vertex_index((*surfaceNodes)[i * 3]),
+            FEMSurfaceMesh::Vertex_index((*surfaceNodes)[i * 3 + 1]),
+            FEMSurfaceMesh::Vertex_index((*surfaceNodes)[i * 3 + 2]));
+    }
+
+    intersections.clear();
+    CGAL::Polygon_mesh_processing::self_intersections(surfaceMesh, std::back_inserter(intersections));
 }
 
 FEMCollisionWorld::FEMCollisionWorld() : btCollisionWorld(
     new btCollisionDispatcher(new btDefaultCollisionConfiguration()),
     new btDbvtBroadphase(), nullptr) {}
 FEMCollisionWorld::~FEMCollisionWorld() {
+    btCollisionWorld::~btCollisionWorld();
+
     delete ((btCollisionDispatcher *)m_dispatcher1)->getCollisionConfiguration();
     delete m_dispatcher1;
     delete m_broadphasePairCache;
+}
+
+void FEMCollisionWorld::updateAabbs() {
+    for (int i = 0; i < getNumCollisionObjects(); i++) {
+        btCollisionObject * collisionObject = getCollisionObjectArray()[i];
+
+        if (getForceUpdateAllAabbs() || collisionObject->isActive()) {
+            FEMCollisionShape * collisionShape = (FEMCollisionShape *)collisionObject->getCollisionShape();
+            collisionShape->recalculateLocalAabb();
+
+            updateSingleAabb(collisionObject);
+        }
+    }
 }

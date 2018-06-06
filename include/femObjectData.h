@@ -39,14 +39,6 @@
 #include <maya/MIntArray.h>
 #include <maya/MArgList.h>
 
-#include <BulletCollision/CollisionDispatch/btCollisionObject.h>
-
-#include <memory>
-
-typedef std::shared_ptr<FEMTetrahedralMesh> FEMTetrahedralMeshSharedPointer;
-typedef std::shared_ptr<MIntArray> FEMIntegerArraySharedPointer;
-typedef std::shared_ptr<FEMCollisionObject> FEMCollisionObjectSharedPointer;
-
 struct FEMParameters {
     bool enable;
     bool passive;
@@ -67,6 +59,7 @@ struct FEMParameters {
     MObject meshObject;
     MObject surfaceNodesObject;
     MObject volumeNodesObject;
+    MObject boundaryVolumesObject;
     MMatrix matrix;
 
     bool updateParameters;
@@ -97,12 +90,14 @@ public:
     FEMObjectData & initialize(FEMParameters &);
     FEMObjectData & update(FEMParameters &, const MPxData &);
 
-    FEMTetrahedralMeshSharedPointer getTetrahedralMesh();
-    const FEMTetrahedralMeshSharedPointer getTetrahedralMesh() const;
-    FEMIntegerArraySharedPointer getSurfaceNodes();
-    const FEMIntegerArraySharedPointer getSurfaceNodes() const;
-    FEMCollisionObjectSharedPointer getCollisionObject();
-    const FEMCollisionObjectSharedPointer getCollisionObject() const;
+    FEMTetrahedralMesh * getTetrahedralMesh();
+    const FEMTetrahedralMesh * getTetrahedralMesh() const;
+    MIntArray * getSurfaceNodes();
+    const MIntArray * getSurfaceNodes() const;
+    MIntArray * getBoundaryVolumes();
+    const MIntArray * getBoundaryVolumes() const;
+    FEMCollisionObject * getCollisionObject();
+    const FEMCollisionObject * getCollisionObject() const;
 
     bool isEnable() const;
     bool isPassive() const;
@@ -112,9 +107,9 @@ public:
     double getFriction() const;
 
 private:
-    FEMTetrahedralMeshSharedPointer tetrahedralMesh;
-    FEMIntegerArraySharedPointer surfaceNodes;
-    FEMCollisionObjectSharedPointer collisionObject;
+    FEMTetrahedralMesh * tetrahedralMesh;
+    MIntArray * surfaceNodes, *boundaryVolumes;
+    FEMCollisionObject * collisionObject;
 
     bool enable;
     bool passive;
@@ -122,6 +117,9 @@ private:
     double massDamping;
     double stiffnessDamping;
     double friction;
+
+    void allocate();
+    void deallocate();
 };
 
 #endif

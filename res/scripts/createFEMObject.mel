@@ -47,6 +47,9 @@ global proc string[] addFEMObject(int $passive) {
     }
     else
         $femSolver = $solverList[0];
+
+    float $startTime = `getAttr ($femSolver + ".startTime")`;
+    currentTime $startTime;
         
     for ($inputMesh in $inputMeshList) {
         string $femObject;
@@ -77,6 +80,7 @@ global proc string[] addFEMObject(int $passive) {
             connectAttr -force ($femMesh + ".outputMesh") ($femObject + ".inputMesh");
             connectAttr -force ($femMesh + ".surfaceNodes") ($femObject + ".surfaceNodes");
             connectAttr -force ($femMesh + ".volumeNodes") ($femObject + ".volumeNodes");
+            connectAttr -force ($femMesh + ".boundaryVolumes") ($femObject + ".boundaryVolumes");
             
             int $index = `getNextFreeMultiIndex ($femSolver + ".currentState") 0`;
             
@@ -99,9 +103,6 @@ global proc string[] addFEMObject(int $passive) {
     }
 
     select $selectionList;
-
-    float $startTime = `getAttr ($femSolver + ".startTime")`;
-    currentTime $startTime;
 
     AEdagNodeCommonRefreshOutliners();
     

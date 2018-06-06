@@ -15,7 +15,7 @@
 namespace opentissue {
     namespace fem {
         template<typename fem_mesh, typename vector_type>
-        inline void apply_external_force(fem_mesh &mesh, vector_type const & force) {
+        inline void apply_external_force(fem_mesh &mesh, vector_type const &force) {
             typedef typename fem_mesh::node_iterator node_iterator;
 
             node_iterator nbegin = mesh.node_begin();
@@ -45,7 +45,7 @@ namespace opentissue {
         }
 
         template<typename fem_mesh, typename vector_type>
-        inline void apply_acceleration(fem_mesh &mesh, vector_type const & acceleration) {
+        inline void apply_acceleration(fem_mesh &mesh, vector_type const &acceleration) {
             typedef typename fem_mesh::node_iterator node_iterator;
 
             node_iterator nbegin = mesh.node_begin();
@@ -60,7 +60,7 @@ namespace opentissue {
         }
 
         template<typename fem_mesh, typename vector_type>
-        inline void set_velocity(fem_mesh &mesh, vector_type const & velocity) {
+        inline void set_velocity(fem_mesh &mesh, vector_type const &velocity) {
             typedef typename fem_mesh::node_iterator node_iterator;
 
             node_iterator nbegin = mesh.node_begin();
@@ -76,26 +76,21 @@ namespace opentissue {
 
         template<typename fem_mesh, typename vector_type>
         inline void set_angular_velocity(fem_mesh &mesh,
-            vector_type const & angular_velocity) {
+            vector_type const &angular_velocity) {
             typedef typename fem_mesh::node_iterator node_iterator;
 
-            vector_type mass_center;
+            vector_type centroid;
+            compute_centroid(mesh, centroid);
 
             node_iterator nbegin = mesh.node_begin();
             node_iterator nend = mesh.node_end();
-
-            for (node_iterator n = nbegin; n != nend; n++)
-                mass_center += n->m_world_coord;
-
-            if (mesh.size_nodes() != 0)
-                mass_center /= (double)mesh.size_nodes();
 
             for (node_iterator n = nbegin; n != nend; n++) {
                 if (n->m_fixed)
                     continue;
 
                 n->m_velocity = math::cross(angular_velocity,
-                    n->m_world_coord - mass_center);
+                    n->m_world_coord - centroid);
             }
         }
 
@@ -108,6 +103,40 @@ namespace opentissue {
 
             for (node_iterator n = nbegin; n != nend; n++)
                 n->m_fixed = fixed;
+        }
+
+        template<typename fem_mesh>
+        inline void reset_world_coordinate(fem_mesh &mesh) {
+            typedef fem_mesh::node_iterator node_iterator;
+
+            node_iterator nbegin = mesh.node_begin();
+            node_iterator nend = mesh.node_end();
+
+            for (node_iterator n = nbegin; n != nend; n++)
+                n->m_world_coord = n->m_coord;
+        }
+
+        template<typename fem_mesh, typename vector_type>
+        inline void compute_centroid(fem_mesh const &mesh, vector_type &centroid) {
+            typedef typename fem_mesh::real_type real_type;
+            typedef typename fem_mesh::const_tetrahedron_iterator const_tetrahedron_iterator;
+
+            centroid(0) = 0;
+            centroid(1) = 0;
+            centroid(2) = 0;
+
+            real_type volume = 0;
+
+            const_tetrahedron_iterator tbegin = mesh.tetrahedron_begin();
+            const_tetrahedron_iterator tend = mesh.tetrahedron_end();
+
+            for (const_tetrahedron_iterator t = tbegin; t != tend; t++) {
+                centroid += t->m_volume * t->m_centroid;
+                volume += t->m_volume;
+            }
+
+            if (volume != 0)
+                centroid /= volume;
         }
     }
 }

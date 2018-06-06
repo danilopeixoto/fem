@@ -45,12 +45,12 @@ namespace opentissue {
 
                                 n_i->K((unsigned int)n_j->idx()) += J_ij;
 
-                                if (j > i)
+                                if (j != i)
                                     n_j->K((unsigned int)n_i->idx()) += math::trans(J_ij);
                             }
                         }
 
-                        n_i->m_f0 -= Re * f0;
+                        n_i->m_f0 += Re * f0;
                     }
                 }
             }

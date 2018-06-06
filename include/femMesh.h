@@ -79,21 +79,31 @@ private:
     FEMTransform::Ptr transform;
 };
 
-struct FEMTriangleHash {
-    FEMTriangleHash();
-    ~FEMTriangleHash();
+struct FEMTriangleFace {
+    unsigned int triangleIndex;
+    unsigned int index0, index1, index2;
 
-    size_t operator ()(const FEMTriangle &) const;
+    FEMTriangleFace();
+    FEMTriangleFace(unsigned int, unsigned int, unsigned int);
+    FEMTriangleFace(unsigned int, unsigned int, unsigned int, unsigned int);
+    ~FEMTriangleFace();
 };
 
-struct FEMTriangleEqual {
-    FEMTriangleEqual();
-    ~FEMTriangleEqual();
+struct FEMTriangleFaceHash {
+    FEMTriangleFaceHash();
+    ~FEMTriangleFaceHash();
 
-    bool operator ()(const FEMTriangle &, const FEMTriangle &) const;
+    size_t operator ()(const FEMTriangleFace &) const;
 };
 
-typedef std::unordered_set<FEMTriangle, FEMTriangleHash, FEMTriangleEqual> FEMTriangleSet;
+struct FEMTriangleFaceEqual {
+    FEMTriangleFaceEqual();
+    ~FEMTriangleFaceEqual();
+
+    bool operator ()(const FEMTriangleFace &, const FEMTriangleFace &) const;
+};
+
+typedef std::unordered_set<FEMTriangleFace, FEMTriangleFaceHash, FEMTriangleFaceEqual> FEMTriangleSet;
 
 class FEMMesh : public MPxNode {
 public:
@@ -104,6 +114,7 @@ public:
     static MObject outputMeshObject;
     static MObject surfaceNodesObject;
     static MObject volumeNodesObject;
+    static MObject boundaryVolumesObject;
 
     static const MTypeId id;
     static const MString typeName;
@@ -132,7 +143,7 @@ private:
         MComputation * computation;
     };
 
-    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, double, double);
+    MStatus tetrahedralize(MObject &, MIntArray &, MIntArray &, MIntArray &, double, double);
     double computeAverageSize(MObject &);
 };
 

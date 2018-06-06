@@ -69,6 +69,7 @@ FEMParameters::FEMParameters(const FEMParameters & parameters) {
         meshObject = parameters.meshObject;
         surfaceNodesObject = parameters.surfaceNodesObject;
         volumeNodesObject = parameters.volumeNodesObject;
+        boundaryVolumesObject = parameters.boundaryVolumesObject;
         matrix = parameters.matrix;
 
         updateParameters = parameters.updateParameters;
@@ -81,9 +82,7 @@ const MTypeId FEMObjectData::id(0x00128580);
 const MString FEMObjectData::typeName("femObjectData");
 
 FEMObjectData::FEMObjectData() {
-    tetrahedralMesh = std::make_shared<FEMTetrahedralMesh>();
-    surfaceNodes = std::make_shared<MIntArray>();
-    collisionObject = std::make_shared<FEMCollisionObject>();
+    allocate();
 
     enable = true;
     passive = false;
@@ -91,11 +90,16 @@ FEMObjectData::FEMObjectData() {
     massDamping = 2.0;
     stiffnessDamping = 0;
     friction = 0.5;
+
+    collisionObject->setFriction(friction);
 }
 FEMObjectData::FEMObjectData(const MPxData & source) {
+    allocate();
     copy(source);
 }
-FEMObjectData::~FEMObjectData() {}
+FEMObjectData::~FEMObjectData() {
+    deallocate();
+}
 
 MTypeId FEMObjectData::typeId() const {
     return id;
@@ -111,9 +115,10 @@ void FEMObjectData::copy(const MPxData & source) {
     const FEMObjectData & objectData = (const FEMObjectData &)source;
 
     if (this != &objectData) {
-        tetrahedralMesh = objectData.getTetrahedralMesh();
-        surfaceNodes = objectData.getSurfaceNodes();
-        collisionObject = objectData.getCollisionObject();
+        *tetrahedralMesh = *objectData.getTetrahedralMesh();
+        surfaceNodes->copy(*objectData.getSurfaceNodes());
+        boundaryVolumes->copy(*objectData.getBoundaryVolumes());
+        collisionObject->createShape(tetrahedralMesh, surfaceNodes, boundaryVolumes);
 
         enable = objectData.isEnable();
         passive = objectData.isPassive();
@@ -121,13 +126,14 @@ void FEMObjectData::copy(const MPxData & source) {
         massDamping = objectData.getMassDamping();
         stiffnessDamping = objectData.getStiffnessDamping();
         friction = objectData.getFriction();
+
+        collisionObject->setFriction(friction);
     }
 }
 
 FEMObjectData & FEMObjectData::reset() {
-    tetrahedralMesh.reset();
-    surfaceNodes.reset();
-    collisionObject.reset();
+    deallocate();
+    allocate();
 
     enable = true;
     passive = false;
@@ -142,6 +148,7 @@ FEMObjectData & FEMObjectData::reset() {
 FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
     tetrahedralMesh->clear();
     surfaceNodes->clear();
+    boundaryVolumes->clear();
     collisionObject->deleteShape();
 
     enable = parameters.enable;
@@ -166,6 +173,9 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
     arrayData.setObject(parameters.surfaceNodesObject);
     surfaceNodes->copy(arrayData.array());
 
+    arrayData.setObject(parameters.boundaryVolumesObject);
+    boundaryVolumes->copy(arrayData.array());
+
     arrayData.setObject(parameters.volumeNodesObject);
 
     for (unsigned int i = 0; i < arrayData.length() / 4; i++) {
@@ -173,22 +183,26 @@ FEMObjectData & FEMObjectData::initialize(FEMParameters & parameters) {
             arrayData[i * 4 + 2], arrayData[i * 4 + 3]);
     }
 
-    collisionObject->createShape(tetrahedralMesh.get(), surfaceNodes.get());
+    collisionObject->createShape(tetrahedralMesh, surfaceNodes, boundaryVolumes);
     collisionObject->setFriction(friction);
 
-    if (passive)
+    if (passive) {
         opentissue::fem::set_fixed(*tetrahedralMesh, true);
+        opentissue::fem::reset_world_coordinate(*tetrahedralMesh);
+    }
     else {
         opentissue::fem::initialize(*tetrahedralMesh, parameters.density,
             parameters.poissonsRatio, parameters.youngsModulus,
             parameters.minimumYieldStrength, parameters.maximumYieldStrength,
             parameters.creepRate);
 
-        const MVector & v = parameters.initialVelocity;
-        const MVector & a = parameters.initialAngularVelocity;
+        const MVector & velocity = parameters.initialVelocity;
+        const MVector & angularVelocity = parameters.initialAngularVelocity;
 
-        opentissue::fem::set_velocity(*tetrahedralMesh, FEMVector(v.x, v.y, v.z));
-        opentissue::fem::set_angular_velocity(*tetrahedralMesh, FEMVector(a.x, a.y, a.z));
+        opentissue::fem::set_velocity(*tetrahedralMesh,
+            FEMVector(velocity.x, velocity.y, velocity.z));
+        opentissue::fem::set_angular_velocity(*tetrahedralMesh,
+            FEMVector(angularVelocity.x, angularVelocity.y, angularVelocity.z));
     }
 
     return *this;
@@ -220,22 +234,28 @@ FEMObjectData & FEMObjectData::update(FEMParameters & parameters, const MPxData 
     return *this;
 }
 
-FEMTetrahedralMeshSharedPointer FEMObjectData::getTetrahedralMesh() {
+FEMTetrahedralMesh * FEMObjectData::getTetrahedralMesh() {
     return tetrahedralMesh;
 }
-const FEMTetrahedralMeshSharedPointer FEMObjectData::getTetrahedralMesh() const {
+const FEMTetrahedralMesh * FEMObjectData::getTetrahedralMesh() const {
     return tetrahedralMesh;
 }
-FEMIntegerArraySharedPointer FEMObjectData::getSurfaceNodes() {
+MIntArray * FEMObjectData::getSurfaceNodes() {
     return surfaceNodes;
 }
-const FEMIntegerArraySharedPointer FEMObjectData::getSurfaceNodes() const {
+const MIntArray * FEMObjectData::getSurfaceNodes() const {
     return surfaceNodes;
 }
-FEMCollisionObjectSharedPointer FEMObjectData::getCollisionObject() {
+MIntArray * FEMObjectData::getBoundaryVolumes() {
+    return boundaryVolumes;
+}
+const MIntArray * FEMObjectData::getBoundaryVolumes() const {
+    return boundaryVolumes;
+}
+FEMCollisionObject * FEMObjectData::getCollisionObject() {
     return collisionObject;
 }
-const FEMCollisionObjectSharedPointer FEMObjectData::getCollisionObject() const {
+const FEMCollisionObject * FEMObjectData::getCollisionObject() const {
     return collisionObject;
 }
 
@@ -254,4 +274,33 @@ double FEMObjectData::getStiffnessDamping() const {
 }
 double FEMObjectData::getFriction() const {
     return friction;
+}
+
+void FEMObjectData::allocate() {
+    tetrahedralMesh = new FEMTetrahedralMesh();
+    surfaceNodes = new MIntArray();
+    boundaryVolumes = new MIntArray();
+    collisionObject = new FEMCollisionObject();
+}
+
+void FEMObjectData::deallocate() {
+    if (tetrahedralMesh != nullptr) {
+        delete tetrahedralMesh;
+        tetrahedralMesh = nullptr;
+    }
+
+    if (surfaceNodes != nullptr) {
+        delete surfaceNodes;
+        surfaceNodes = nullptr;
+    }
+
+    if (boundaryVolumes != nullptr) {
+        delete boundaryVolumes;
+        boundaryVolumes = nullptr;
+    }
+
+    if (collisionObject != nullptr) {
+        delete collisionObject;
+        collisionObject = nullptr;
+    }
 }

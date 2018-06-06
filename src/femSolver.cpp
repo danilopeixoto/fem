@@ -40,10 +40,37 @@
 
 #include <opentissue/fem/fem.h>
 
-#include <LinearMath/btMinMax.h>
-#include <BulletCollision/BroadphaseCollision/btDbvt.h>
+#include <LinearMath/btVector3.h>
 #include <BulletCollision/NarrowPhaseCollision/btPersistentManifold.h>
 #include <BulletCollision/NarrowPhaseCollision/btManifoldPoint.h>
+
+#include <functional>
+
+FEMContactIndexPair::FEMContactIndexPair() {}
+FEMContactIndexPair::FEMContactIndexPair(unsigned int index0, unsigned int index1)
+    : index0(index0), index1(index1) {}
+FEMContactIndexPair::~FEMContactIndexPair() {}
+
+FEMContactIndexPairHash::FEMContactIndexPairHash() {}
+FEMContactIndexPairHash::~FEMContactIndexPairHash() {}
+
+size_t FEMContactIndexPairHash::operator ()(const FEMContactIndexPair & contactIndexPair) const {
+    size_t h0 = std::hash<unsigned int>()(contactIndexPair.index0);
+    size_t h1 = std::hash<unsigned int>()(contactIndexPair.index1);
+
+    return h0 ^ h1;
+};
+
+FEMContactIndexPairEqual::FEMContactIndexPairEqual() {}
+FEMContactIndexPairEqual::~FEMContactIndexPairEqual() {}
+
+bool FEMContactIndexPairEqual::operator ()(const FEMContactIndexPair & lhs,
+    const FEMContactIndexPair & rhs) const {
+    bool t0 = lhs.index0 == rhs.index0 || lhs.index0 == rhs.index1;
+    bool t1 = lhs.index1 == rhs.index0 || lhs.index1 == rhs.index1;
+
+    return t0 && t1;
+};
 
 MObject FEMSolver::enableObject;
 MObject FEMSolver::startTimeObject;
@@ -60,9 +87,7 @@ MObject FEMSolver::outputStateObject;
 const MTypeId FEMSolver::id(0x00128583);
 const MString FEMSolver::typeName("femSolver");
 
-FEMSolver::FEMSolver() {
-    collisionWorld = std::make_shared<FEMCollisionWorld>();
-}
+FEMSolver::FEMSolver() {}
 FEMSolver::~FEMSolver() {}
 
 void * FEMSolver::creator() {
@@ -209,6 +234,8 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     FEMFrameData frameData;
     frameData.reserve(currentStateArrayHandle.elementCount());
 
+    FEMCollisionWorld * collisionWorld = new FEMCollisionWorld();
+
     computation.beginComputation();
 
     do {
@@ -225,14 +252,25 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
         if (objectData == nullptr)
             return MS::kFailure;
 
-        frameData.push_back(objectData);
+        if (objectData->isEnable()) {
+            collisionWorld->addCollisionObject(objectData->getCollisionObject());
+
+            if (!objectData->isPassive())
+                frameData.push_back(objectData);
+        }
     } while (currentStateArrayHandle.next() == MS::kSuccess);
 
     for (int s = 0; s < steps; s++) {
         collisionWorld->performDiscreteCollisionDetection();
-        performCollisionResponse(frameData);
-        simulateTimestep(frameData, gravity, timestep, maximumIterations);
+
+        status = performCollisionResponse(collisionWorld);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
+
+        status = simulateTimestep(frameData, gravity, timestep, maximumIterations);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
     }
+
+    delete collisionWorld;
 
     MArrayDataBuilder arrayDataBuilder(outputStateArrayHandle.builder());
 
@@ -256,46 +294,68 @@ MStatus FEMSolver::compute(const MPlug & plug, MDataBlock & data) {
     return MS::kSuccess;
 }
 
-btVector3 FEMSolver::computeImpulse(
-    const btVector3 & relativeVelocity, const btVector3 & normal,
-    double friction, double inverseMass0, double inverseMass1,
-    const btVector3 & distance0, const btVector3 & distance1,
-    const btMatrix3x3 & inverseInertiaTensor0, const btMatrix3x3 & inverseInertiaTensor1) {
-    double inverseMassSum = inverseMass0 + inverseMass1;
-    double relativeVelocityDotNormal = relativeVelocity.dot(normal);
+void FEMSolver::computeCollisionForces(FEMTriangleShape * triangleShape0,
+    FEMTriangleShape * triangleShape1, double contactFriction) {
+    FEMIntersectionRegion region;
+    triangleShape0->calculateIntersectionRegion(triangleShape1, region);
 
-    double normalImpulseMagnitude = -relativeVelocityDotNormal /
-        (inverseMassSum + ((inverseInertiaTensor0 * distance0.cross(normal)).cross(distance0) +
-        (inverseInertiaTensor1 * distance1.cross(normal)).cross(distance1)).dot(normal));
+    if (region.volume < FEM_EPSILON)
+        return;
 
-    btVector3 normalImpulse = normalImpulseMagnitude * normal;
+    btVector3 coordinates[2];
+    triangleShape0->calculateVolumeCoordinates(region.centroid, coordinates[0]);
+    triangleShape1->calculateVolumeCoordinates(region.centroid, coordinates[1]);
 
-    btVector3 tangent = relativeVelocity - relativeVelocityDotNormal * normal;
-    double tangentMagnitude = tangent.length();
+    btVector3 velocity[2];
+    triangleShape0->calculateVelocity(coordinates[0], velocity[0]);
+    triangleShape1->calculateVelocity(coordinates[1], velocity[1]);
 
-    if (tangentMagnitude > FEM_EPSILON) {
-        tangent /= tangentMagnitude;
+    btVector3 relativeVelocity = velocity[1] - velocity[0];
 
-        double frictionImpulseMagnitude = -relativeVelocity.dot(tangent) /
-            (inverseMassSum +
-            ((inverseInertiaTensor0 * distance0.cross(tangent)).cross(distance0) +
-                (inverseInertiaTensor1 * distance1.cross(tangent)).cross(distance1)).dot(tangent));
+    double velocityDotNormal = relativeVelocity.dot(region.normal);
+    btVector3 normalForce = region.volume * velocityDotNormal * region.normal;
 
-        double scaledNormalImpulseMagnitude = normalImpulseMagnitude * friction;
-        btClamp(frictionImpulseMagnitude, -scaledNormalImpulseMagnitude, scaledNormalImpulseMagnitude);
+    btVector3 tangentialVelocity = relativeVelocity - velocityDotNormal * region.normal;
+    double tangentialVelocityMagnitude = tangentialVelocity.length();
 
-        return normalImpulse + frictionImpulseMagnitude * tangent;
+    if (tangentialVelocityMagnitude > FEM_EPSILON) {
+        double frictionForceMagnitude = tangentialVelocityMagnitude * region.volume;
+        double scaledNormalForceMagnitude = contactFriction * normalForce.length();
+
+        if (frictionForceMagnitude > scaledNormalForceMagnitude)
+            frictionForceMagnitude = scaledNormalForceMagnitude;
+
+        btVector3 force = normalForce +
+            (frictionForceMagnitude / tangentialVelocityMagnitude) * tangentialVelocity;
+
+        triangleShape0->applyForce(coordinates[0], force);
+        triangleShape1->applyForce(coordinates[1], -force);
     }
-
-    return normalImpulse;
+    else {
+        triangleShape0->applyForce(coordinates[0], normalForce);
+        triangleShape1->applyForce(coordinates[1], -normalForce);
+    }
 }
 
-void FEMSolver::performCollisionResponse(FEMFrameData & frameData) {
+MStatus FEMSolver::performCollisionResponse(FEMCollisionWorld * collisionWorld) {
     int manifoldCount = collisionWorld->getDispatcher()->getNumManifolds();
 
     for (int i = 0; i < manifoldCount; i++) {
+        FEMContactManifoldSet contactManifoldSet;
+
         btPersistentManifold * contactManifold =
             collisionWorld->getDispatcher()->getManifoldByIndexInternal(i);
+
+        int contactCount = contactManifold->getNumContacts();
+
+        for (int j = 0; j < contactCount; j++) {
+            btManifoldPoint & contactPoint = contactManifold->getContactPoint(j);
+
+            if (contactPoint.getDistance() < 0) {
+                FEMContactIndexPair contactIndexPair(contactPoint.m_index0, contactPoint.m_index1);
+                contactManifoldSet.insert(contactIndexPair);
+            }
+        }
 
         FEMCollisionObject * collisionObject0 = (FEMCollisionObject *)contactManifold->getBody0();
         FEMCollisionObject * collisionObject1 = (FEMCollisionObject *)contactManifold->getBody1();
@@ -306,104 +366,67 @@ void FEMSolver::performCollisionResponse(FEMFrameData & frameData) {
         double contactFriction = 0.5 * (collisionObject0->getFriction() +
             collisionObject1->getFriction());
 
-        int contactCount = contactManifold->getNumContacts();
+        FEMContactManifoldSet::const_iterator contactManifoldIterator(contactManifoldSet.cbegin());
 
-        for (int j = 0; j < contactCount; j++) {
-            btManifoldPoint & contactPoint = contactManifold->getContactPoint(j);
-
-            if (contactPoint.getDistance() < 0) {
-                FEMTriangleShape * triangle0 =
-                    (FEMTriangleShape *)collisionShape0->getChildShape(contactPoint.m_index0);
-                FEMTriangleShape * triangle1 =
-                    (FEMTriangleShape *)collisionShape1->getChildShape(contactPoint.m_index1);
-
-                double & mass00 = triangle0->getNode(0)->m_mass;
-                double & mass01 = triangle0->getNode(1)->m_mass;
-                double & mass02 = triangle0->getNode(2)->m_mass;
-
-                double & mass10 = triangle1->getNode(0)->m_mass;
-                double & mass11 = triangle1->getNode(1)->m_mass;
-                double & mass12 = triangle1->getNode(2)->m_mass;
-
-                FEMVector & velocity00 = triangle0->getNode(0)->m_velocity;
-                FEMVector & velocity01 = triangle0->getNode(1)->m_velocity;
-                FEMVector & velocity02 = triangle0->getNode(2)->m_velocity;
-
-                FEMVector & velocity10 = triangle1->getNode(0)->m_velocity;
-                FEMVector & velocity11 = triangle1->getNode(1)->m_velocity;
-                FEMVector & velocity12 = triangle1->getNode(2)->m_velocity;
-
-                btVector3 barycentric[2];
-                triangle0->calculateBarycentric(contactPoint.getPositionWorldOnA(), barycentric[0]);
-                triangle1->calculateBarycentric(contactPoint.getPositionWorldOnB(), barycentric[1]);
-
-                btScalar inverseMass0 = barycentric[0].dot(
-                    btVector3(1.0 / mass00, 1.0 / mass01, 1.0 / mass02));
-                btScalar inverseMass1 = barycentric[1].dot(
-                    btVector3(1.0 / mass10, 1.0 / mass11, 1.0 / mass12));
-
-                btMatrix3x3 velocity0(
-                    velocity00[0], velocity01[0], velocity02[0],
-                    velocity00[1], velocity01[1], velocity02[1],
-                    velocity00[2], velocity01[2], velocity02[2]);
-
-                btMatrix3x3 velocity1(
-                    velocity10[0], velocity11[0], velocity12[0],
-                    velocity10[1], velocity11[1], velocity12[1],
-                    velocity10[2], velocity11[2], velocity12[2]);
-
-                btMatrix3x3 inverseInertiaTensor[2];
-                triangle0->calculateInverseInertiaTensor(inverseInertiaTensor[0]);
-                triangle1->calculateInverseInertiaTensor(inverseInertiaTensor[1]);
-
-                btVector3 distanceVector0 = contactPoint.getPositionWorldOnA() -
-                    collisionShape0->getDynamicAabbTree()->m_root->volume.Center();
-                btVector3 distanceVector1 = contactPoint.getPositionWorldOnB() -
-                    collisionShape1->getDynamicAabbTree()->m_root->volume.Center();
-
-                btVector3 relativeVelocity = velocity1 * barycentric[1] - velocity0 * barycentric[0];
-
-                btVector3 impulse = computeImpulse(relativeVelocity,
-                    contactPoint.m_normalWorldOnB, contactFriction,
-                    inverseMass0, inverseMass1,
-                    distanceVector0, distanceVector1,
-                    inverseInertiaTensor[0], inverseInertiaTensor[1]);
-
-                velocity0 -= FEMOuterProduct(impulse / inverseMass0, barycentric[0]);
-                velocity1 += FEMOuterProduct(impulse / inverseMass1, barycentric[1]);
-
-                velocity00[0] = velocity0[0][0];
-                velocity00[1] = velocity0[1][0];
-                velocity00[2] = velocity0[2][0];
-
-                velocity01[0] = velocity0[0][1];
-                velocity01[1] = velocity0[1][1];
-                velocity01[2] = velocity0[2][1];
-
-                velocity02[0] = velocity0[0][2];
-                velocity02[1] = velocity0[1][2];
-                velocity02[2] = velocity0[2][2];
-
-                velocity10[0] = velocity1[0][0];
-                velocity10[1] = velocity1[1][0];
-                velocity10[2] = velocity1[2][0];
-
-                velocity11[0] = velocity1[0][1];
-                velocity11[1] = velocity1[1][1];
-                velocity11[2] = velocity1[2][1];
-
-                velocity12[0] = velocity1[0][2];
-                velocity12[1] = velocity1[1][2];
-                velocity12[2] = velocity1[2][2];
+        while (contactManifoldIterator != contactManifoldSet.cend()) {
+            if (computation.isInterruptRequested()) {
+                computation.endComputation();
+                return MS::kFailure;
             }
+
+            const FEMContactIndexPair & contactIndexPair = *(contactManifoldIterator++);
+
+            FEMTriangleShape * triangleShape0 =
+                (FEMTriangleShape *)collisionShape0->getChildShape(contactIndexPair.index0);
+            FEMTriangleShape * triangleShape1 =
+                (FEMTriangleShape *)collisionShape1->getChildShape(contactIndexPair.index1);
+
+            computeCollisionForces(triangleShape0, triangleShape1, contactFriction);
         }
     }
+
+    FEMIntersectionPairList intersections;
+
+    for (int i = 0; i < collisionWorld->getNumCollisionObjects(); i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
+        FEMCollisionObject * collisionObject =
+            (FEMCollisionObject *)collisionWorld->getCollisionObjectArray()[i];
+
+        FEMCollisionShape * collisionShape =
+            (FEMCollisionShape *)collisionObject->getCollisionShape();
+
+        double contactFriction = collisionObject->getFriction();
+
+        collisionObject->calculateSelfIntersections(intersections);
+
+        for (int j = 0; j < intersections.size(); j++) {
+            const FEMIntersectionPair & intersectionPair = intersections[j];
+
+            FEMTriangleShape * triangleShape0 =
+                (FEMTriangleShape *)collisionShape->getChildShape(intersectionPair.first);
+            FEMTriangleShape * triangleShape1 =
+                (FEMTriangleShape *)collisionShape->getChildShape(intersectionPair.second);
+
+            computeCollisionForces(triangleShape0, triangleShape1, contactFriction);
+        }
+    }
+
+    return MS::kSuccess;
 }
-void FEMSolver::simulateTimestep(FEMFrameData & frameData, const MVector & gravity,
+MStatus FEMSolver::simulateTimestep(FEMFrameData & frameData, const MVector & gravity,
     double timestep, int maximumIterations) {
     for (unsigned int i = 0; i < frameData.size(); i++) {
+        if (computation.isInterruptRequested()) {
+            computation.endComputation();
+            return MS::kFailure;
+        }
+
         FEMObjectData * objectData = frameData[i];
-        FEMTetrahedralMeshSharedPointer tetrahedralMesh = objectData->getTetrahedralMesh();
+        FEMTetrahedralMesh * tetrahedralMesh = objectData->getTetrahedralMesh();
 
         opentissue::fem::apply_acceleration(*tetrahedralMesh,
             FEMVector(gravity.x, gravity.y, gravity.z));
@@ -413,4 +436,6 @@ void FEMSolver::simulateTimestep(FEMFrameData & frameData, const MVector & gravi
 
         opentissue::fem::clear_external_forces(*tetrahedralMesh);
     }
+
+    return MS::kSuccess;
 }

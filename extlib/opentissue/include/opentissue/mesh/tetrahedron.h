@@ -128,6 +128,14 @@ namespace opentissue {
                 return m_owner->const_node(this->global_index(local_idx));
             }
 
+            node_iterator global_index_node(index_type global_idx) {
+                return m_owner->node(global_idx);
+            }
+
+            const_node_iterator global_index_node(index_type global_idx) const {
+                return m_owner->const_node(global_idx);
+            }
+
             index_type global_index(index_type local_idx) const {
                 return m_nodes[local_idx];
             }

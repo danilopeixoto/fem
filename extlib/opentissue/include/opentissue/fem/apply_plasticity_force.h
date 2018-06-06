@@ -26,8 +26,6 @@ namespace opentissue {
                 typedef typename fem_mesh::node_iterator node_iterator;
                 typedef typename fem_mesh::tetrahedron_iterator tetrahedron_iterator;
 
-                using std::sqrt;
-
                 tbb::parallel_for(size_t(0), mesh.size_tetrahedra(), [&](size_t i) {
                     tetrahedron_iterator tet = mesh.tetrahedron(i);
 
@@ -43,7 +41,7 @@ namespace opentissue {
                         vector_type &x = node->m_world_coord;
                         vector_type &x0 = node->m_coord;
 
-                        vector_type d = (math::trans(tet->m_Re) * x) - x0;
+                        vector_type d = math::trans(tet->m_Re) * x - x0;
 
                         real_type bj = tet->m_B[j](0);
                         real_type cj = tet->m_B[j](1);
@@ -65,7 +63,7 @@ namespace opentissue {
                     for (unsigned int j = 0; j < 6; j++)
                         norm_elastic += e_elastic[j] * e_elastic[j];
 
-                    norm_elastic = sqrt(norm_elastic);
+                    norm_elastic = std::sqrt(norm_elastic);
 
                     if (norm_elastic > tet->m_yield) {
                         real_type amount = tet->m_creep * (1.0 - tet->m_yield / norm_elastic);
@@ -79,7 +77,7 @@ namespace opentissue {
                     for (unsigned int j = 0; j < 6; j++)
                         norm_plastic += tet->m_plastic[j] * tet->m_plastic[j];
 
-                    norm_plastic = sqrt(norm_plastic);
+                    norm_plastic = std::sqrt(norm_plastic);
 
                     if (norm_plastic > tet->m_max_yield) {
                         real_type scale = tet->m_max_yield / norm_plastic;
@@ -117,7 +115,7 @@ namespace opentissue {
                         f(2) = djE1 * plastic[0] + djE1 * plastic[1] + djE0 * plastic[2] +
                             bjE2 * plastic[4] + cjE2 * plastic[5];
 
-                        f *= tet->m_volume;
+                        f *= tet->m_volume0;
                         tet->node(j)->m_f_external += tet->m_Re * f;
                     }
                 });

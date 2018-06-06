@@ -24,7 +24,7 @@ namespace opentissue {
 
                 vector_type *B = tetrahedron->m_B;
 
-                real_type inv6V = 1.0 / (6.0 * tetrahedron->m_volume);
+                real_type inv6V = 1.0 / (6.0 * tetrahedron->m_volume0);
 
                 B[1](0) = (e20(1) * e30(2) - e20(2) * e30(1)) * inv6V;
                 B[2](0) = (e10(2) * e30(1) - e10(1) * e30(2)) * inv6V;

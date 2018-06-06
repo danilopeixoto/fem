@@ -10,6 +10,7 @@
 
 #include <opentissue/configuration.h>
 
+#include <opentissue/fem/compute_centroid.h>
 #include <opentissue/fem/compute_volume.h>
 #include <opentissue/fem/compute_b.h>
 #include <opentissue/fem/compute_isotropic_elasticity.h>
@@ -48,9 +49,12 @@ namespace opentissue {
                     tet->m_e20 = tet->k()->m_coord - tet->i()->m_coord;
                     tet->m_e30 = tet->m()->m_coord - tet->i()->m_coord;
 
-                    tet->m_volume = compute_volume(tet->m_e10, tet->m_e20, tet->m_e30);
+                    tet->m_volume0 = compute_volume(tet->m_e10, tet->m_e20, tet->m_e30);
+                    tet->m_volume = tet->m_volume0;
 
+                    compute_centroid(tet);
                     compute_b(tet);
+
                     compute_isotropic_elasticity(tet);
 
                     compute_ke(tet);
